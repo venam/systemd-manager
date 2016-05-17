@@ -85,8 +85,7 @@ fn get_unit_journal(unit_path: &str) -> String {
     log.lines().rev().map(|x| x.trim()).fold(String::with_capacity(log.len()), |acc, x| acc + "\n" + x)
 }
 
-// TODO: Fix clippy error and start using this everywhere
-fn get_filename<'a>(path: &'a str) -> &str {
+fn get_filename(path: &str) -> &str {
     Path::new(path).file_name().unwrap().to_str().unwrap()
 }
 
@@ -304,21 +303,21 @@ pub fn launch() {
                 "Services" => {
                     let index   = services_list.get_selected_row().unwrap().get_index();
                     let service = &services[index as usize];
-                    if let None = dbus::start_unit(Path::new(service.name.as_str()).file_name().unwrap().to_str().unwrap()) {
+                    if let None = dbus::start_unit(get_filename(service.name.as_str())) {
                         update_icon(&services_icons[index as usize], true);
                     }
                 },
                 "Sockets" => {
                     let index   = sockets_list.get_selected_row().unwrap().get_index();
                     let socket  = &sockets[index as usize];
-                    if let None = dbus::start_unit(Path::new(socket.name.as_str()).file_name().unwrap().to_str().unwrap()) {
+                    if let None = dbus::start_unit(get_filename(socket.name.as_str())) {
                         update_icon(&sockets_icons[index as usize], true);
                     }
                 },
                 "Timers" => {
                     let index   = timers_list.get_selected_row().unwrap().get_index();
                     let timer  = &timers[index as usize];
-                    if let None = dbus::start_unit(Path::new(timer.name.as_str()).file_name().unwrap().to_str().unwrap()) {
+                    if let None = dbus::start_unit(get_filename(timer.name.as_str())) {
                         update_icon(&timers_icons[index as usize], true);
                     }
                 },
@@ -343,21 +342,21 @@ pub fn launch() {
                 "Services" => {
                     let index   = services_list.get_selected_row().unwrap().get_index();
                     let service = &services[index as usize];
-                    if let None = dbus::stop_unit(Path::new(service.name.as_str()).file_name().unwrap().to_str().unwrap()) {
+                    if let None = dbus::stop_unit(get_filename(service.name.as_str())) {
                         update_icon(&services_icons[index as usize], false);
                     }
                 },
                 "Sockets" => {
                     let index   = sockets_list.get_selected_row().unwrap().get_index();
                     let socket  = &sockets[index as usize];
-                    if let None = dbus::stop_unit(Path::new(socket.name.as_str()).file_name().unwrap().to_str().unwrap()) {
+                    if let None = dbus::stop_unit(get_filename(socket.name.as_str())) {
                         update_icon(&sockets_icons[index as usize], false);
                     }
                 },
                 "Timers" => {
                     let index   = timers_list.get_selected_row().unwrap().get_index();
                     let timer   = &timers[index as usize];
-                    if let None = dbus::stop_unit(Path::new(timer.name.as_str()).file_name().unwrap().to_str().unwrap()) {
+                    if let None = dbus::stop_unit(get_filename(timer.name.as_str())) {
                         update_icon(&timers_icons[index as usize], false);
                     }
                 },
