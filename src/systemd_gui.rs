@@ -369,10 +369,16 @@ pub fn launch() {
                 let service = &services[index as usize];
                 let service_path = get_filename(service.name.as_str());
                 if enabled && !dbus::get_unit_file_state(service.name.as_str()) {
-                    dbus::enable_unit_files(service_path);
+                    match dbus::enable_unit_files(service_path) {
+                        Ok(message)  => println!("{}", message),
+                        Err(message) => println!("{}", message)
+                    }
                     switch.set_state(true);
                 } else if !enabled && dbus::get_unit_file_state(service.name.as_str()) {
-                    dbus::disable_unit_files(service_path);
+                    match dbus::disable_unit_files(service_path) {
+                        Ok(message)  => println!("{}", message),
+                        Err(message) => println!("{}", message)
+                    }
                     switch.set_state(false);
                 }
             },
@@ -384,10 +390,16 @@ pub fn launch() {
                 let socket  = &sockets[index as usize];
                 let socket_path = get_filename(socket.name.as_str());
                 if enabled && !dbus::get_unit_file_state(socket.name.as_str()) {
-                    dbus::enable_unit_files(socket_path);
+                    match dbus::enable_unit_files(socket_path) {
+                        Ok(message)  => println!("{}", message),
+                        Err(message) => println!("{}", message)
+                    }
                     switch.set_state(true);
                 } else if !enabled && dbus::get_unit_file_state(socket.name.as_str()) {
-                    dbus::disable_unit_files(socket_path);
+                    match dbus::disable_unit_files(socket_path) {
+                        Ok(message)  => println!("{}", message),
+                        Err(message) => println!("{}", message)
+                    }
                     switch.set_state(false);
                 }
             },
@@ -399,10 +411,16 @@ pub fn launch() {
                 let timer  = &timers[index as usize];
                 let timer_path = get_filename(timer.name.as_str());
                 if enabled && !dbus::get_unit_file_state(timer.name.as_str()) {
-                    dbus::enable_unit_files(timer_path);
+                    match dbus::enable_unit_files(timer_path) {
+                        Ok(message)  => println!("{}", message),
+                        Err(message) => println!("{}", message)
+                    }
                     switch.set_state(true);
                 } else if !enabled && dbus::get_unit_file_state(timer.name.as_str()) {
-                    dbus::disable_unit_files(timer_path);
+                    match dbus::disable_unit_files(timer_path) {
+                        Ok(message)  => println!("{}", message),
+                        Err(message) => println!("{}", message)
+                    }
                     switch.set_state(false);
                 }
             },
@@ -431,8 +449,12 @@ pub fn launch() {
                         None      => 0
                     };
                     let service = &services[index as usize];
-                    if let None = dbus::start_unit(get_filename(service.name.as_str())) {
-                        update_icon(&services_icons[index as usize], true);
+                    match dbus::start_unit(get_filename(service.name.as_str())) {
+                        Ok(message) => {
+                            println!("{}", message);
+                            update_icon(&services_icons[index as usize], true);
+                        },
+                        Err(message) => println!("{}", message)
                     }
                 },
                 "Sockets" => {
@@ -441,8 +463,12 @@ pub fn launch() {
                         None      => 0
                     };
                     let socket  = &sockets[index as usize];
-                    if let None = dbus::start_unit(get_filename(socket.name.as_str())) {
-                        update_icon(&sockets_icons[index as usize], true);
+                    match dbus::start_unit(get_filename(socket.name.as_str())) {
+                        Ok(message) => {
+                            println!("{}", message);
+                            update_icon(&sockets_icons[index as usize], true);
+                        },
+                        Err(message) => println!("{}", message)
                     }
                 },
                 "Timers" => {
@@ -451,8 +477,12 @@ pub fn launch() {
                         None      => 0
                     };
                     let timer  = &timers[index as usize];
-                    if let None = dbus::start_unit(get_filename(timer.name.as_str())) {
-                        update_icon(&timers_icons[index as usize], true);
+                    match dbus::start_unit(get_filename(timer.name.as_str())) {
+                        Ok(message) => {
+                            println!("{}", message);
+                            update_icon(&timers_icons[index as usize], true);
+                        },
+                        Err(message) => println!("{}", message)
                     }
                 },
                 _ => ()
@@ -479,8 +509,12 @@ pub fn launch() {
                         None      => 0
                     };
                     let service = &services[index as usize];
-                    if let None = dbus::stop_unit(get_filename(service.name.as_str())) {
-                        update_icon(&services_icons[index as usize], false);
+                    match dbus::stop_unit(get_filename(service.name.as_str())) {
+                        Ok(message) => {
+                            println!("{}", message);
+                            update_icon(&services_icons[index as usize], false);
+                        },
+                        Err(message) => println!("{}", message)
                     }
                 },
                 "Sockets" => {
@@ -489,8 +523,12 @@ pub fn launch() {
                         None      => 0
                     };
                     let socket  = &sockets[index as usize];
-                    if let None = dbus::stop_unit(get_filename(socket.name.as_str())) {
-                        update_icon(&sockets_icons[index as usize], false);
+                    match dbus::stop_unit(get_filename(socket.name.as_str())) {
+                        Ok(message) => {
+                            println!("{}", message);
+                            update_icon(&sockets_icons[index as usize], false);
+                        },
+                        Err(message) => println!("{}", message)
                     }
                 },
                 "Timers" => {
@@ -499,8 +537,12 @@ pub fn launch() {
                         None      => 0
                     };
                     let timer   = &timers[index as usize];
-                    if let None = dbus::stop_unit(get_filename(timer.name.as_str())) {
-                        update_icon(&timers_icons[index as usize], false);
+                    match dbus::stop_unit(get_filename(timer.name.as_str())) {
+                        Ok(message) => {
+                            println!("{}", message);
+                            update_icon(&timers_icons[index as usize], false);
+                        },
+                        Err(message) => println!("{}", message)
                     }
                 },
                 _ => ()
