@@ -563,6 +563,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                   <object class="GtkSwitch" id="ablement_switch">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="valign">center</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
