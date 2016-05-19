@@ -1,5 +1,5 @@
 Package: systemd-manager
-Version: 0.3.3
+Version: 0.4.5
 Section: admin
 Priority: optional
 Maintainer: Michael Aaron Murphy <mmstickman@gmail.com>
