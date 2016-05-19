@@ -194,24 +194,25 @@ pub fn launch() {
             let stop_button     = stop_button.clone();
             let start_button    = start_button.clone();
             $list.connect_row_selected(move |_, row| {
-                let index       = row.clone().unwrap().get_index();
-                let unit        = &$units[index as usize];
-                let description = get_unit_info(unit.name.as_str());
-                unit_info.get_buffer().unwrap().set_text(description.as_str());
-                ablement_switch.set_active(dbus::get_unit_file_state(unit.name.as_str()));
-                ablement_switch.set_state(ablement_switch.get_active());
-                update_journal(&unit_journal, unit.name.as_str());
-                header.set_label(get_filename(unit.name.as_str()));
-                match get_unit_description(&description) {
-                    Some(description) => header.set_label(description),
-                    None              => header.set_label(get_filename(unit.name.as_str()))
-                }
-                if systemctl::unit_is_active(get_filestem(&unit.name)) {
-                    start_button.set_visible(false);
-                    stop_button.set_visible(true);
-                } else {
-                    start_button.set_visible(true);
-                    stop_button.set_visible(false);
+                if let Some(row) = row.clone() {
+                    let unit        = &$units[row.get_index() as usize];
+                    let description = get_unit_info(unit.name.as_str());
+                    unit_info.get_buffer().unwrap().set_text(description.as_str());
+                    ablement_switch.set_active(dbus::get_unit_file_state(unit.name.as_str()));
+                    ablement_switch.set_state(ablement_switch.get_active());
+                    update_journal(&unit_journal, unit.name.as_str());
+                    header.set_label(get_filename(unit.name.as_str()));
+                    match get_unit_description(&description) {
+                        Some(description) => header.set_label(description),
+                        None              => header.set_label(get_filename(unit.name.as_str()))
+                    }
+                    if systemctl::unit_is_active(get_filestem(&unit.name)) {
+                        start_button.set_visible(false);
+                        stop_button.set_visible(true);
+                    } else {
+                        start_button.set_visible(true);
+                        stop_button.set_visible(false);
+                    }
                 }
             });
         }}
