@@ -1,17 +1,19 @@
+prefix = /usr
+
 all:
 	cargo build --release
 
 install:
-	cp target/release/systemd-manager /usr/bin/
-	cp assets/systemd-manager-pkexec /usr/bin/
-	cp assets/systemd-manager.desktop /usr/share/applications/
-	cp assets/org.freedesktop.policykit.systemd-manager.policy /usr/share/polkit-1/actions/
+	cp target/release/systemd-manager $(prefix)/bin/
+	cp assets/systemd-manager-pkexec $(prefix)/bin/
+	cp assets/systemd-manager.desktop $(prefix)/share/applications/
+	cp assets/org.freedesktop.policykit.systemd-manager.policy $(prefix)/share/polkit-1/actions/
 	
 uninstall:
-	rm /usr/bin/systemd-manager
-	rm /usr/bin/systemd-manager-pkexec
-	rm /usr/share/applications/systemd-manager.desktop
-	rm /usr/share/polkit-1/actions/org.freedesktop.policykit.systemd-manager.policy
+	rm $(prefix)/bin/systemd-manager
+	rm $(prefix)/bin/systemd-manager-pkexec
+	rm $(prefix)/share/applications/systemd-manager.desktop
+	rm $(prefix)/share/polkit-1/actions/org.freedesktop.policykit.systemd-manager.policy
 
 ubuntu:
 	sudo apt install libgtk-3-dev
