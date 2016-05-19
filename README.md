@@ -27,13 +27,26 @@ This is available in the AUR as a git package: [`systemd-manager-git`](https://a
 Simply run this in a terminal to `wget` the Debian package and `dpkg -i` it.
 
 ```sh
-sudo wget https://github.com/mmstick/systemd-manager/releases/download/0.4.5/systemd-manager_0.4.5_amd64.deb
+wget https://github.com/mmstick/systemd-manager/releases/download/0.4.5/systemd-manager_0.4.5_amd64.deb
 sudo dpkg -i systemd-manager_0.4.5_amd64.deb
 ```
 
 ### Building From Source
 
-For Ubuntu users, this will automatically install `libgtk-3-dev`, generate a systemd-manager Debian package and automatically install it. For everyone else, it will simply install directly to the /usr prefix. Simply install Rust via [rustup.rs](https://www.rustup.rs/) and execute the `install.sh` script. The installation of Rust software is incredibly simple as the process is largely just `cargo build --release`, but this installation script will install all the files needed by the application for proper integration with **PolicyKit** into the correct places in the filesystem, which `cargo install` does not perform.
+For Ubuntu users, this will automatically install `libgtk-3-dev`, generate a systemd-manager Debian package and automatically install it.
 
-- **Install:** `./install.sh`
-- **Uninstall:** `./uninstall.sh`
+```sh
+make ubuntu
+```
+
+For everyone else, this will simply install directly to the /usr prefix. Simply install Rust via [rustup.rs](https://www.rustup.rs/) and execute `make & sudo make install`. The installation of Rust software is incredibly simple as the process is largely just `cargo build --release`, but this installation script will install all the files needed by the application for proper integration with **PolicyKit** into the correct places in the filesystem, which `cargo install` does not perform.
+
+```sh
+make && sudo make install
+```
+
+In the event that you would like to uninstall the application, simply run the following:
+
+```sh
+sudo make uninstall
+```
