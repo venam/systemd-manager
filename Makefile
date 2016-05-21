@@ -4,11 +4,14 @@ all:
 	cargo build --release
 
 install:
-	cp target/release/systemd-manager $(DESTDIR)/bin/
-	cp assets/systemd-manager-pkexec $(DESTDIR)/bin/
-	cp assets/systemd-manager.desktop $(DESTDIR)/share/applications/
-	cp assets/org.freedesktop.policykit.systemd-manager.policy $(DESTDIR)/share/polkit-1/actions/
-	
+	install -d $(DESTDIR)/bin/
+	install -d $(DESTDIR)/share/applications/
+	install -d $(DESTDIR)/share/polkit-1/actions/
+	install -m 755 target/release/systemd-manager $(DESTDIR)/bin/
+	install -m 755 assets/systemd-manager-pkexec $(DESTDIR)/bin/
+	install -m 644 assets/systemd-manager.desktop $(DESTDIR)/share/applications/
+	install -m 644 assets/org.freedesktop.policykit.systemd-manager.policy $(DESTDIR)/share/polkit-1/actions/
+
 uninstall:
 	rm $(DESTDIR)/bin/systemd-manager
 	rm $(DESTDIR)/bin/systemd-manager-pkexec
@@ -18,12 +21,13 @@ uninstall:
 ubuntu:
 	sudo apt install libgtk-3-dev
 	cargo build --release
-	mkdir -p debian/usr/bin
-	mkdir -p debian/usr/share/applications
-	mkdir -p debian/usr/share/polkit-1/actions/
-	cp target/release/systemd-manager debian/usr/bin
-	cp assets/systemd-manager-pkexec debian/usr/bin/
-	cp assets/systemd-manager.desktop debian/usr/share/applications/
-	cp assets/org.freedesktop.policykit.systemd-manager.policy debian/usr/share/polkit-1/actions
+	strip target/release/systemd-manager
+	install -d debian/usr/bin
+	install -d debian/usr/share/applications
+	install -d debian/usr/share/polkit-1/actions/
+	install -m 755 target/release/systemd-manager debian/usr/bin
+	install -m 755 assets/systemd-manager-pkexec debian/usr/bin/
+	install -m 644 assets/systemd-manager.desktop debian/usr/share/applications/
+	install -m 644 assets/org.freedesktop.policykit.systemd-manager.policy debian/usr/share/polkit-1/actions
 	dpkg-deb --build debian systemd-manager.deb
 	sudo dpkg -i systemd-manager.deb
