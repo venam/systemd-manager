@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=Systemd Manager
-Icon=preferences-system
-Exec=systemd-manager-pkexec
-Terminal=false
-Type=Application
-StartupNotify=true
-Categories=GNOME;GTK;System;
-Keywords=Systemd;Systemctl;Services;

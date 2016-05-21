@@ -29,5 +29,5 @@ ubuntu:
 	install -m 755 assets/systemd-manager-pkexec debian/usr/bin/
 	install -m 644 assets/systemd-manager.desktop debian/usr/share/applications/
 	install -m 644 assets/org.freedesktop.policykit.systemd-manager.policy debian/usr/share/polkit-1/actions
-	dpkg-deb --build debian systemd-manager.deb
+	fakeroot dpkg-deb --build debian systemd-manager.deb
 	sudo dpkg -i systemd-manager.deb
