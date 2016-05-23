@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
 
-use systemd::dbus;
+use systemd::dbus::{self, UnitState};
 use systemd::analyze::Analyze;
 use systemd::systemctl;
 
@@ -18,19 +18,27 @@ fn update_icon(icon: &gtk::Image, state: bool) {
 
 /// Create a `gtk::ListboxRow` and add it to the `gtk::ListBox`, and then add the `gtk::Image` to a vector so that we can later modify
 /// it when the state changes.
-fn create_row(row: &mut gtk::ListBoxRow, path: &Path, state_icons: &mut Vec<gtk::Image>) {
+fn create_row(row: &mut gtk::ListBoxRow, path: &Path, state: UnitState, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
     let filename = path.file_stem().unwrap().to_str().unwrap();
     let unit_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let unit_label = gtk::Label::new(Some(filename));
-    let image = if systemctl::unit_is_active(filename) {
+    let running_state = if systemctl::unit_is_active(filename) {
         gtk::Image::new_from_stock("gtk-yes", 4)
     } else {
         gtk::Image::new_from_stock("gtk-no", 4)
     };
-    unit_box.add(&unit_label);
-    unit_box.pack_end(&image, false, false, 15);
+
+    let enablement_state = if state == UnitState::Enabled {
+        gtk::Image::new_from_stock("gtk-yes", 4)
+    } else {
+        gtk::Image::new_from_stock("gtk-no", 4)
+    };
+    unit_box.pack_start(&unit_label, false, false, 5);
+    unit_box.pack_end(&running_state, false, false, 0);
+    unit_box.pack_end(&enablement_state, false, false, 0);
     row.add(&unit_box);
-    state_icons.push(image);
+    active_icons.push(running_state);
+    enable_icons.push(enablement_state);
 }
 
 /// Read the unit file and return it's contents so that we can display it in the `gtk::TextView`.
@@ -174,10 +182,11 @@ pub fn launch() {
 
     // Initializes the units for a given unit list
     macro_rules! initialize_units {
-        ($units:ident, $list:ident, $icons:ident) => {{
+        ($units:ident, $list:ident, $active_icons:ident, $enable_icons:ident) => {{
             for unit in $units.clone() {
                 let mut unit_row = gtk::ListBoxRow::new();
-                create_row(&mut unit_row, Path::new(unit.name.as_str()), &mut $icons);
+                create_row(&mut unit_row, Path::new(unit.name.as_str()),
+                    unit.state, &mut $active_icons, &mut $enable_icons);
                 $list.insert(&unit_row, -1);
             }
         }}
@@ -223,16 +232,19 @@ pub fn launch() {
     setup_systemd_analyze(&builder);
 
     // Initialize all of the services, sockets, timers and their respective signals.
-    let unit_files = dbus::list_unit_files();
-    let services   = dbus::collect_togglable_services(&unit_files);
-    let sockets    = dbus::collect_togglable_sockets(&unit_files);
-    let timers     = dbus::collect_togglable_timers(&unit_files);
-    let mut services_icons = Vec::new();
-    let mut sockets_icons = Vec::new();
-    let mut timers_icons = Vec::new();
-    initialize_units!(services, services_list, services_icons);
-    initialize_units!(sockets, sockets_list, sockets_icons);
-    initialize_units!(timers, timers_list, timers_icons);
+    let unit_files                 = dbus::list_unit_files();
+    let services                   = dbus::collect_togglable_services(&unit_files);
+    let sockets                    = dbus::collect_togglable_sockets(&unit_files);
+    let timers                     = dbus::collect_togglable_timers(&unit_files);
+    let mut services_icons_active  = Vec::new();
+    let mut services_icons_enabled = Vec::new();
+    let mut sockets_icons_active   = Vec::new();
+    let mut sockets_icons_enabled  = Vec::new();
+    let mut timers_icons_active    = Vec::new();
+    let mut timers_icons_enabled   = Vec::new();
+    initialize_units!(services, services_list, services_icons_active, services_icons_enabled);
+    initialize_units!(sockets, sockets_list, sockets_icons_active, sockets_icons_enabled);
+    initialize_units!(timers, timers_list, timers_icons_active, timers_icons_enabled);
     signal_row_selected!(timers, timers_list);
     signal_row_selected!(services, services_list);
     signal_row_selected!(sockets, sockets_list);
@@ -277,13 +289,16 @@ pub fn launch() {
     }
 
     { // NOTE: Implement the {dis, en}able button
-        let services        = services.clone();
-        let services_list   = services_list.clone();
-        let sockets         = sockets.clone();
-        let sockets_list    = sockets_list.clone();
-        let timers          = timers.clone();
-        let timers_list     = timers_list.clone();
-        let unit_stack      = unit_stack.clone();
+        let services               = services.clone();
+        let services_list          = services_list.clone();
+        let services_icons_enabled = services_icons_enabled.clone();
+        let sockets                = sockets.clone();
+        let sockets_list           = sockets_list.clone();
+        let sockets_icons_enabled  = sockets_icons_enabled.clone();
+        let timers                 = timers.clone();
+        let timers_list            = timers_list.clone();
+        let timers_icons_enabled   = timers_icons_enabled.clone();
+        let unit_stack             = unit_stack.clone();
         ablement_switch.connect_state_set(move |switch, enabled| {
             match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
@@ -295,13 +310,19 @@ pub fn launch() {
                     let service_path = get_filename(service.name.as_str());
                     if enabled && !dbus::get_unit_file_state(service.name.as_str()) {
                         match dbus::enable_unit_files(service_path) {
-                            Ok(message)  => println!("{}", message),
+                            Ok(message)  => {
+                                println!("{}", message);
+                                update_icon(&services_icons_enabled[index as usize], true);
+                            },
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(true);
                     } else if !enabled && dbus::get_unit_file_state(service.name.as_str()) {
                         match dbus::disable_unit_files(service_path) {
-                            Ok(message)  => println!("{}", message),
+                            Ok(message)  => {
+                                println!("{}", message);
+                                update_icon(&services_icons_enabled[index as usize], false);
+                            },
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(false);
@@ -316,13 +337,19 @@ pub fn launch() {
                     let socket_path = get_filename(socket.name.as_str());
                     if enabled && !dbus::get_unit_file_state(socket.name.as_str()) {
                         match dbus::enable_unit_files(socket_path) {
-                            Ok(message)  => println!("{}", message),
+                            Ok(message)  => {
+                                println!("{}", message);
+                                update_icon(&sockets_icons_enabled[index as usize], true);
+                            },
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(true);
                     } else if !enabled && dbus::get_unit_file_state(socket.name.as_str()) {
                         match dbus::disable_unit_files(socket_path) {
-                            Ok(message)  => println!("{}", message),
+                            Ok(message)  => {
+                                println!("{}", message);
+                                update_icon(&sockets_icons_enabled[index as usize], false);
+                            },
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(false);
@@ -337,13 +364,19 @@ pub fn launch() {
                     let timer_path = get_filename(timer.name.as_str());
                     if enabled && !dbus::get_unit_file_state(timer.name.as_str()) {
                         match dbus::enable_unit_files(timer_path) {
-                            Ok(message)  => println!("{}", message),
+                            Ok(message)  => {
+                                println!("{}", message);
+                                update_icon(&timers_icons_enabled[index as usize], true);
+                            },
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(true);
                     } else if !enabled && dbus::get_unit_file_state(timer.name.as_str()) {
                         match dbus::disable_unit_files(timer_path) {
-                            Ok(message)  => println!("{}", message),
+                            Ok(message)  => {
+                                println!("{}", message);
+                                update_icon(&sockets_icons_enabled[index as usize], false);
+                            },
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(false);
@@ -356,18 +389,18 @@ pub fn launch() {
     }
 
     { // NOTE: Implement the start button
-        let services       = services.clone();
-        let services_list  = services_list.clone();
-        let sockets        = sockets.clone();
-        let sockets_list   = sockets_list.clone();
-        let timers         = timers.clone();
-        let timers_list    = timers_list.clone();
-        let services_icons = services_icons.clone();
-        let sockets_icons  = sockets_icons.clone();
-        let timers_icons   = timers_icons.clone();
-        let unit_stack     = unit_stack.clone();
-        let start_button   = start_button.clone();
-        let stop_button    = stop_button.clone();
+        let services              = services.clone();
+        let services_list         = services_list.clone();
+        let sockets               = sockets.clone();
+        let sockets_list          = sockets_list.clone();
+        let timers                = timers.clone();
+        let timers_list           = timers_list.clone();
+        let services_icons_active = services_icons_active.clone();
+        let sockets_icons_active  = sockets_icons_active.clone();
+        let timers_icons_active   = timers_icons_active.clone();
+        let unit_stack            = unit_stack.clone();
+        let start_button          = start_button.clone();
+        let stop_button           = stop_button.clone();
         start_button.connect_clicked(move |button| {
             match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
@@ -379,7 +412,7 @@ pub fn launch() {
                     match dbus::start_unit(get_filename(service.name.as_str())) {
                         Ok(message) => {
                             println!("{}", message);
-                            update_icon(&services_icons[index as usize], true);
+                            update_icon(&services_icons_active[index as usize], true);
                             button.set_visible(false);
                             stop_button.set_visible(true);
                         },
@@ -395,7 +428,7 @@ pub fn launch() {
                     match dbus::start_unit(get_filename(socket.name.as_str())) {
                         Ok(message) => {
                             println!("{}", message);
-                            update_icon(&sockets_icons[index as usize], true);
+                            update_icon(&sockets_icons_active[index as usize], true);
                             button.set_visible(false);
                             stop_button.set_visible(true);
                         },
@@ -411,7 +444,7 @@ pub fn launch() {
                     match dbus::start_unit(get_filename(timer.name.as_str())) {
                         Ok(message) => {
                             println!("{}", message);
-                            update_icon(&timers_icons[index as usize], true);
+                            update_icon(&timers_icons_active[index as usize], true);
                             button.set_visible(false);
                             stop_button.set_visible(true);
                         },
@@ -424,18 +457,18 @@ pub fn launch() {
     }
 
     { // NOTE: Implement the stop button
-        let services       = services.clone();
-        let services_list  = services_list.clone();
-        let sockets        = sockets.clone();
-        let sockets_list   = sockets_list.clone();
-        let timers         = timers.clone();
-        let timers_list    = timers_list.clone();
-        let services_icons = services_icons.clone();
-        let sockets_icons  = sockets_icons.clone();
-        let timers_icons   = timers_icons.clone();
-        let unit_stack    = unit_stack.clone();
-        let start_button   = start_button.clone();
-        let stop_button    = stop_button.clone();
+        let services              = services.clone();
+        let services_list         = services_list.clone();
+        let sockets               = sockets.clone();
+        let sockets_list          = sockets_list.clone();
+        let timers                = timers.clone();
+        let timers_list           = timers_list.clone();
+        let services_icons_active = services_icons_active.clone();
+        let sockets_icons_active  = sockets_icons_active.clone();
+        let timers_icons_active   = timers_icons_active.clone();
+        let unit_stack            = unit_stack.clone();
+        let start_button          = start_button.clone();
+        let stop_button           = stop_button.clone();
         stop_button.connect_clicked(move |button| {
             match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
@@ -447,7 +480,7 @@ pub fn launch() {
                     match dbus::stop_unit(get_filename(service.name.as_str())) {
                         Ok(message) => {
                             println!("{}", message);
-                            update_icon(&services_icons[index as usize], false);
+                            update_icon(&services_icons_active[index as usize], false);
                             button.set_visible(false);
                             start_button.set_visible(true);
                         },
@@ -463,7 +496,7 @@ pub fn launch() {
                     match dbus::stop_unit(get_filename(socket.name.as_str())) {
                         Ok(message) => {
                             println!("{}", message);
-                            update_icon(&sockets_icons[index as usize], false);
+                            update_icon(&sockets_icons_active[index as usize], false);
                             button.set_visible(false);
                             start_button.set_visible(true);
                         },
@@ -479,7 +512,7 @@ pub fn launch() {
                     match dbus::stop_unit(get_filename(timer.name.as_str())) {
                         Ok(message) => {
                             println!("{}", message);
-                            update_icon(&timers_icons[index as usize], false);
+                            update_icon(&timers_icons_active[index as usize], false);
                             button.set_visible(false);
                             start_button.set_visible(true);
                         },
@@ -492,7 +525,7 @@ pub fn launch() {
     }
 
     { // NOTE: Save Button
-        let unit_info = unit_info.clone();
+        let unit_info     = unit_info.clone();
         let services      = services.clone();
         let services_list = services_list.clone();
         let sockets       = sockets.clone();

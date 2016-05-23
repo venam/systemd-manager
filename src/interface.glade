@@ -163,6 +163,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                           <object class="GtkViewport" id="services_viewport">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
+                            <property name="margin_right">10</property>
                             <child>
                               <object class="GtkListBox" id="services_list">
                                 <property name="visible">True</property>
