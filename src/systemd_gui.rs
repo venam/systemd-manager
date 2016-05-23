@@ -27,12 +27,14 @@ fn create_row(row: &mut gtk::ListBoxRow, path: &Path, state: UnitState, active_i
     } else {
         gtk::Image::new_from_stock("gtk-no", 4)
     };
+    running_state.set_tooltip_text(Some("Active Status"));
 
     let enablement_state = if state == UnitState::Enabled {
         gtk::Image::new_from_stock("gtk-yes", 4)
     } else {
         gtk::Image::new_from_stock("gtk-no", 4)
     };
+    enablement_state.set_tooltip_text(Some("Enablement Status"));
     unit_box.pack_start(&unit_label, false, false, 5);
     unit_box.pack_end(&running_state, false, false, 0);
     unit_box.pack_end(&enablement_state, false, false, 0);
