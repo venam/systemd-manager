@@ -1,14 +1,15 @@
-use systemd::dbus;
-use systemd::analyze::Analyze;
-use systemd::systemctl;
-use gtk;
-use gtk::prelude::*;
-use gdk::enums::key;
-
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
+
+use systemd::dbus;
+use systemd::analyze::Analyze;
+use systemd::systemctl;
+
+use gtk;
+use gtk::prelude::*;
+use gdk::enums::key;
 
 /// Updates the status icon for the selected unit
 fn update_icon(icon: &gtk::Image, state: bool) {

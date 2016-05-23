@@ -1,4 +1,6 @@
 extern crate dbus;
+extern crate quickersort;
+
 use std::path::Path;
 
 /// Takes a systemd dbus function as input and returns the result as a `dbus::Message`.
@@ -90,7 +92,7 @@ pub fn list_unit_files() -> Vec<SystemdUnit> {
             systemd_units.push(SystemdUnit{name: name, state: state, utype: utype});
         }
 
-        systemd_units.sort_by(|a, b| a.name.cmp(&b.name));
+        quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         systemd_units
     }
 
