@@ -20,8 +20,9 @@ fn update_icon(icon: &gtk::Image, state: bool) {
 /// Create a `gtk::ListboxRow` and add it to the `gtk::ListBox`, and then add the `gtk::Image` to a vector so that we can later modify
 /// it when the state changes.
 fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
-    let unit_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let unit_label = gtk::Label::new(Some(&unit.name));
+    unit_label.set_tooltip_text(get_unit_description(get_unit_info(unit.path.as_str()).as_str()));
+
     let running_state = if unit.is_active() {
         gtk::Image::new_from_stock("gtk-yes", 4)
     } else {
@@ -35,10 +36,13 @@ fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut 
         gtk::Image::new_from_stock("gtk-no", 4)
     };
     enablement_state.set_tooltip_text(Some("Enablement Status"));
+
+    let unit_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     unit_box.pack_start(&unit_label, false, false, 5);
     unit_box.pack_end(&running_state, false, false, 0);
     unit_box.pack_end(&enablement_state, false, false, 0);
     row.add(&unit_box);
+    
     active_icons.push(running_state);
     enable_icons.push(enablement_state);
 }
