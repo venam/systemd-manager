@@ -155,7 +155,7 @@ pub fn launch() {
                 popover.set_visible(false);
                 $list.select_row(Some(&$list.get_row_at_index(0).unwrap()));
                 let unit = &$units[0];
-                let info = get_unit_info(&unit.name);
+                let info = get_unit_info(&unit.path);
                 unit_info.get_buffer().unwrap().set_text(info.as_str());
                 ablement_switch.set_active(unit.is_enabled());
                 ablement_switch.set_state(ablement_switch.get_active());
