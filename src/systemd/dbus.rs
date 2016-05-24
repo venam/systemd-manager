@@ -44,16 +44,16 @@ impl Dbus for SystemdUnit {
     /// If dbus replies with `[Bool(true), Array([], "(sss)")]`, the service is already enabled.
     fn enable(&self) -> Result<String, String> {
         let mut message = dbus_message!("EnableUnitFiles");
-        message.append_items(&[[self.path.as_str()][..].into(), false.into(), true.into()]);
+        message.append_items(&[[self.name.as_str()][..].into(), false.into(), true.into()]);
         match dbus_connect!(message) {
             Ok(reply) => {
                 if format!("{:?}", reply.get_items()) == "[Bool(true), Array([], \"(sss)\")]" {
-                    Ok(format!("{} already enabled", self.path))
+                    Ok(format!("{} already enabled", self.name))
                 } else {
-                    Ok(format!("{} has been enabled", self.path))
+                    Ok(format!("{} has been enabled", self.name))
                 }
             },
-            Err(reply) => Err(format!("Error enabling {}:\n{:?}", self.path, reply))
+            Err(reply) => Err(format!("Error enabling {}:\n{:?}", self.name, reply))
         }
     }
 
@@ -61,16 +61,16 @@ impl Dbus for SystemdUnit {
     /// If dbus replies with `[Array([], "(sss)")]`, the service is already disabled.
     fn disable(&self) -> Result<String, String> {
         let mut message = dbus_message!("DisableUnitFiles");
-        message.append_items(&[[self.path.as_str()][..].into(), false.into()]);
+        message.append_items(&[[self.name.as_str()][..].into(), false.into()]);
         match dbus_connect!(message) {
             Ok(reply) => {
                 if format!("{:?}", reply.get_items()) == "[Array([], \"(sss)\")]" {
-                    Ok(format!("{} is already disabled", self.path))
+                    Ok(format!("{} is already disabled", self.name))
                 } else {
-                    Ok(format!("{} has been disabled", self.path))
+                    Ok(format!("{} has been disabled", self.name))
                 }
             },
-            Err(reply) => Err(format!("Error disabling {}:\n{:?}", self.path, reply))
+            Err(reply) => Err(format!("Error disabling {}:\n{:?}", self.name, reply))
         }
     }
 
