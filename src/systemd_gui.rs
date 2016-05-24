@@ -3,9 +3,10 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
 
-use systemd::dbus::{self, UnitState};
+use systemd::{UnitState, SystemdUnit};
+use systemd::systemctl::Systemctl;
+use systemd::dbus::{self, Dbus};
 use systemd::analyze::Analyze;
-use systemd::systemctl;
 
 use gtk;
 use gtk::prelude::*;
@@ -18,18 +19,17 @@ fn update_icon(icon: &gtk::Image, state: bool) {
 
 /// Create a `gtk::ListboxRow` and add it to the `gtk::ListBox`, and then add the `gtk::Image` to a vector so that we can later modify
 /// it when the state changes.
-fn create_row(row: &mut gtk::ListBoxRow, path: &Path, state: UnitState, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
-    let filename = path.file_stem().unwrap().to_str().unwrap();
+fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
     let unit_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    let unit_label = gtk::Label::new(Some(filename));
-    let running_state = if systemctl::unit_is_active(filename) {
+    let unit_label = gtk::Label::new(Some(&unit.name));
+    let running_state = if unit.is_active() {
         gtk::Image::new_from_stock("gtk-yes", 4)
     } else {
         gtk::Image::new_from_stock("gtk-no", 4)
     };
     running_state.set_tooltip_text(Some("Active Status"));
 
-    let enablement_state = if state == UnitState::Enabled {
+    let enablement_state = if unit.state == UnitState::Enabled {
         gtk::Image::new_from_stock("gtk-yes", 4)
     } else {
         gtk::Image::new_from_stock("gtk-no", 4)
@@ -93,24 +93,15 @@ fn setup_systemd_analyze(builder: &gtk::Builder) {
 }
 
 /// Updates the associated journal `TextView` with the contents of the unit's journal log.
-fn update_journal(journal: &gtk::TextView, unit_path: &str) {
-    journal.get_buffer().unwrap().set_text(get_unit_journal(unit_path).as_str());
+fn update_journal(journal: &gtk::TextView, unit: &str) {
+    journal.get_buffer().unwrap().set_text(get_unit_journal(unit).as_str());
 }
 
 /// Obtains the journal log for the given unit.
-fn get_unit_journal(unit_path: &str) -> String {
-    let log = String::from_utf8(Command::new("journalctl").arg("-b").arg("-u")
-        .arg(Path::new(unit_path).file_stem().unwrap().to_str().unwrap())
+fn get_unit_journal(unit: &str) -> String {
+    let log = String::from_utf8(Command::new("journalctl").arg("-b").arg("-u").arg(unit)
         .output().unwrap().stdout).unwrap();
     log.lines().rev().map(|x| x.trim()).fold(String::with_capacity(log.len()), |acc, x| acc + "\n" + x)
-}
-
-fn get_filename(path: &str) -> &str {
-    Path::new(path).file_name().unwrap().to_str().unwrap()
-}
-
-fn get_filestem(path: &str) -> &str {
-    Path::new(path).file_stem().unwrap().to_str().unwrap()
 }
 
 pub fn launch() {
@@ -142,6 +133,7 @@ pub fn launch() {
     let systemd_units: gtk::Button             = builder.get_object("systemd_units").unwrap();
     let systemd_analyze: gtk::Button           = builder.get_object("systemd_analyze").unwrap();
     let systemd_menu_popover: gtk::PopoverMenu = builder.get_object("systemd_menu_popover").unwrap();
+    let dependencies_view: gtk::TextView       = builder.get_object("dependencies_view").unwrap();
 
     macro_rules! units_menu_clicked {
         ($units_button:ident, $units:ident, $list:ident, $unit_type:expr) => {{
@@ -156,28 +148,31 @@ pub fn launch() {
             let header          = header_service_label.clone();
             let start_button    = start_button.clone();
             let stop_button     = stop_button.clone();
+            let dependencies    = dependencies_view.clone();
             $units_button.connect_clicked(move |_| {
                 stack.set_visible_child_name($unit_type);
                 label.set_text($unit_type);
                 popover.set_visible(false);
                 $list.select_row(Some(&$list.get_row_at_index(0).unwrap()));
                 let unit = &$units[0];
-                let info = get_unit_info(unit.name.as_str());
+                let info = get_unit_info(&unit.name);
                 unit_info.get_buffer().unwrap().set_text(info.as_str());
-                ablement_switch.set_active(dbus::get_unit_file_state(unit.name.as_str()));
+                ablement_switch.set_active(unit.is_enabled());
                 ablement_switch.set_state(ablement_switch.get_active());
-                update_journal(&unit_journal, unit.name.as_str());
+                update_journal(&unit_journal, &unit.name);
                 match get_unit_description(&info) {
                     Some(description) => header.set_label(description),
-                    None              => header.set_label(get_filename(unit.name.as_str()))
+                    None              => header.set_label(&unit.name)
                 }
-                if systemctl::unit_is_active(get_filestem(&unit.name)) {
+                if unit.is_active() {
                     start_button.set_visible(false);
                     stop_button.set_visible(true);
                 } else {
                     start_button.set_visible(true);
                     stop_button.set_visible(false);
                 }
+
+                dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str())
             });
         }}
     }
@@ -187,8 +182,7 @@ pub fn launch() {
         ($units:ident, $list:ident, $active_icons:ident, $enable_icons:ident) => {{
             for unit in $units.clone() {
                 let mut unit_row = gtk::ListBoxRow::new();
-                create_row(&mut unit_row, Path::new(unit.name.as_str()),
-                    unit.state, &mut $active_icons, &mut $enable_icons);
+                create_row(&mut unit_row, &unit, &mut $active_icons, &mut $enable_icons);
                 $list.insert(&unit_row, -1);
             }
         }}
@@ -205,26 +199,29 @@ pub fn launch() {
             let header          = header_service_label.clone();
             let stop_button     = stop_button.clone();
             let start_button    = start_button.clone();
+            let dependencies    = dependencies_view.clone();
             $list.connect_row_selected(move |_, row| {
                 if let Some(row) = row.clone() {
                     let unit        = &$units[row.get_index() as usize];
-                    let description = get_unit_info(unit.name.as_str());
+                    let description = get_unit_info(&unit.path);
                     unit_info.get_buffer().unwrap().set_text(description.as_str());
-                    ablement_switch.set_active(dbus::get_unit_file_state(unit.name.as_str()));
+                    ablement_switch.set_active(unit.is_enabled());
                     ablement_switch.set_state(ablement_switch.get_active());
-                    update_journal(&unit_journal, unit.name.as_str());
-                    header.set_label(get_filename(unit.name.as_str()));
+                    update_journal(&unit_journal, &unit.name);
+                    header.set_label(unit.name.as_str());
                     match get_unit_description(&description) {
                         Some(description) => header.set_label(description),
-                        None              => header.set_label(get_filename(unit.name.as_str()))
+                        None              => header.set_label(&unit.name)
                     }
-                    if systemctl::unit_is_active(get_filestem(&unit.name)) {
+                    if unit.is_active() {
                         start_button.set_visible(false);
                         stop_button.set_visible(true);
                     } else {
                         start_button.set_visible(true);
                         stop_button.set_visible(false);
                     }
+
+                    dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str())
                 }
             });
         }}
@@ -309,9 +306,8 @@ pub fn launch() {
                         None      => 0
                     };
                     let service = &services[index as usize];
-                    let service_path = get_filename(service.name.as_str());
-                    if enabled && !dbus::get_unit_file_state(service.name.as_str()) {
-                        match dbus::enable_unit_files(service_path) {
+                    if enabled && !service.is_enabled() {
+                        match service.enable() {
                             Ok(message)  => {
                                 println!("{}", message);
                                 update_icon(&services_icons_enabled[index as usize], true);
@@ -319,8 +315,8 @@ pub fn launch() {
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(true);
-                    } else if !enabled && dbus::get_unit_file_state(service.name.as_str()) {
-                        match dbus::disable_unit_files(service_path) {
+                    } else if !enabled && service.is_enabled() {
+                        match service.disable() {
                             Ok(message)  => {
                                 println!("{}", message);
                                 update_icon(&services_icons_enabled[index as usize], false);
@@ -336,9 +332,8 @@ pub fn launch() {
                         None      => 0
                     };
                     let socket  = &sockets[index as usize];
-                    let socket_path = get_filename(socket.name.as_str());
-                    if enabled && !dbus::get_unit_file_state(socket.name.as_str()) {
-                        match dbus::enable_unit_files(socket_path) {
+                    if enabled && !socket.is_enabled() {
+                        match socket.enable() {
                             Ok(message)  => {
                                 println!("{}", message);
                                 update_icon(&sockets_icons_enabled[index as usize], true);
@@ -346,8 +341,8 @@ pub fn launch() {
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(true);
-                    } else if !enabled && dbus::get_unit_file_state(socket.name.as_str()) {
-                        match dbus::disable_unit_files(socket_path) {
+                    } else if !enabled && socket.is_enabled() {
+                        match socket.disable() {
                             Ok(message)  => {
                                 println!("{}", message);
                                 update_icon(&sockets_icons_enabled[index as usize], false);
@@ -363,9 +358,8 @@ pub fn launch() {
                         None      => 0
                     };
                     let timer  = &timers[index as usize];
-                    let timer_path = get_filename(timer.name.as_str());
-                    if enabled && !dbus::get_unit_file_state(timer.name.as_str()) {
-                        match dbus::enable_unit_files(timer_path) {
+                    if enabled && !timer.is_enabled() {
+                        match timer.enable() {
                             Ok(message)  => {
                                 println!("{}", message);
                                 update_icon(&timers_icons_enabled[index as usize], true);
@@ -373,8 +367,8 @@ pub fn launch() {
                             Err(message) => println!("{}", message)
                         }
                         switch.set_state(true);
-                    } else if !enabled && dbus::get_unit_file_state(timer.name.as_str()) {
-                        match dbus::disable_unit_files(timer_path) {
+                    } else if !enabled && timer.is_enabled() {
+                        match timer.disable() {
                             Ok(message)  => {
                                 println!("{}", message);
                                 update_icon(&sockets_icons_enabled[index as usize], false);
@@ -411,7 +405,7 @@ pub fn launch() {
                         None      => 0
                     };
                     let service = &services[index as usize];
-                    match dbus::start_unit(get_filename(service.name.as_str())) {
+                    match service.start() {
                         Ok(message) => {
                             println!("{}", message);
                             update_icon(&services_icons_active[index as usize], true);
@@ -427,7 +421,7 @@ pub fn launch() {
                         None      => 0
                     };
                     let socket  = &sockets[index as usize];
-                    match dbus::start_unit(get_filename(socket.name.as_str())) {
+                    match socket.start() {
                         Ok(message) => {
                             println!("{}", message);
                             update_icon(&sockets_icons_active[index as usize], true);
@@ -443,7 +437,7 @@ pub fn launch() {
                         None      => 0
                     };
                     let timer  = &timers[index as usize];
-                    match dbus::start_unit(get_filename(timer.name.as_str())) {
+                    match timer.start() {
                         Ok(message) => {
                             println!("{}", message);
                             update_icon(&timers_icons_active[index as usize], true);
@@ -479,7 +473,7 @@ pub fn launch() {
                         None      => 0
                     };
                     let service = &services[index as usize];
-                    match dbus::stop_unit(get_filename(service.name.as_str())) {
+                    match service.stop() {
                         Ok(message) => {
                             println!("{}", message);
                             update_icon(&services_icons_active[index as usize], false);
@@ -494,8 +488,8 @@ pub fn launch() {
                         Some(row) => row.get_index(),
                         None      => 0
                     };
-                    let socket  = &sockets[index as usize];
-                    match dbus::stop_unit(get_filename(socket.name.as_str())) {
+                    let socket = &sockets[index as usize];
+                    match socket.stop() {
                         Ok(message) => {
                             println!("{}", message);
                             update_icon(&sockets_icons_active[index as usize], false);
@@ -510,8 +504,8 @@ pub fn launch() {
                         Some(row) => row.get_index(),
                         None      => 0
                     };
-                    let timer   = &timers[index as usize];
-                    match dbus::stop_unit(get_filename(timer.name.as_str())) {
+                    let timer = &timers[index as usize];
+                    match timer.stop() {
                         Ok(message) => {
                             println!("{}", message);
                             update_icon(&timers_icons_active[index as usize], false);

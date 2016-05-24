@@ -1,10 +1,28 @@
 use std::process::Command;
+use super::SystemdUnit;
 
-/// Runs the `systemctl status` command and receives it's stdout to determin the active status of the unit.
-pub fn unit_is_active(unit: &str) -> bool {
-    match String::from_utf8(Command::new("systemctl").arg("status").arg(unit).output().unwrap().stdout) {
-        Ok(stdout) => parse_state(stdout.as_str()),
-        Err(_) => false
+pub trait Systemctl {
+    fn is_active(&self) -> bool;
+    fn list_dependencies(&self) -> String;
+}
+
+impl Systemctl for SystemdUnit {
+    /// Runs the `systemctl status` command and receives it's stdout to determin the active status of the unit.
+    fn is_active(&self) -> bool {
+        match String::from_utf8(Command::new("systemctl").arg("status").arg(&self.name).output().unwrap().stdout) {
+            Ok(stdout) => parse_state(stdout.as_str()),
+            Err(_) => false
+        }
+    }
+
+    fn list_dependencies(&self) -> String {
+        match String::from_utf8(Command::new("systemctl").arg("list-dependencies").arg(&self.name).output().unwrap().stdout) {
+            Ok(stdout) => {
+                stdout.lines().skip(1).map(|x| x.chars().skip(4).collect::<String>())
+                    .fold(String::new(), |acc, x| acc + x.as_str() + "\n")
+            },
+            Err(_) => self.name.clone()
+        }
     }
 }
 

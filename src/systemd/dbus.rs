@@ -1,6 +1,6 @@
 extern crate dbus;
 extern crate quickersort;
-
+use super::{SystemdUnit, UnitType, UnitState};
 use std::path::Path;
 
 /// Takes a systemd dbus function as input and returns the result as a `dbus::Message`.
@@ -22,50 +22,75 @@ macro_rules! dbus_connect {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct SystemdUnit {
-    pub name: String,
-    pub state: UnitState,
-    pub utype: UnitType,
+pub trait Dbus {
+    fn is_enabled(&self) -> bool;
+    fn enable(&self) -> Result<String, String>;
+    fn disable(&self) -> Result<String, String>;
+    fn start(&self) -> Result<String, String>;
+    fn stop(&self) -> Result<String, String>;
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UnitType { Automount, Busname, Mount, Path, Scope, Service, Slice, Socket, Target, Timer }
-impl UnitType {
-    /// Takes the pathname of the unit as input to determine what type of unit it is.
-    pub fn new(pathname: &str) -> UnitType {
-        match Path::new(pathname).extension().unwrap().to_str().unwrap() {
-            "automount" => UnitType::Automount,
-            "busname" => UnitType::Busname,
-            "mount" => UnitType::Mount,
-            "path" => UnitType::Path,
-            "scope" => UnitType::Scope,
-            "service" => UnitType::Service,
-            "slice" => UnitType::Slice,
-            "socket" => UnitType::Socket,
-            "target" => UnitType::Target,
-            "timer" => UnitType::Timer,
-            _ => panic!("Unknown Type: {}", pathname),
+
+impl Dbus for SystemdUnit {
+    /// Returns the current enablement status of the unit
+    fn is_enabled(&self) -> bool {
+        for unit in list_unit_files() {
+            if &unit.path == &self.path { return unit.state == UnitState::Enabled; }
+        }
+        false
+    }
+
+    /// Takes the unit pathname of a service and enables it via dbus.
+    /// If dbus replies with `[Bool(true), Array([], "(sss)")]`, the service is already enabled.
+    fn enable(&self) -> Result<String, String> {
+        let mut message = dbus_message!("EnableUnitFiles");
+        message.append_items(&[[self.path.as_str()][..].into(), false.into(), true.into()]);
+        match dbus_connect!(message) {
+            Ok(reply) => {
+                if format!("{:?}", reply.get_items()) == "[Bool(true), Array([], \"(sss)\")]" {
+                    Ok(format!("{} already enabled", self.path))
+                } else {
+                    Ok(format!("{} has been enabled", self.path))
+                }
+            },
+            Err(reply) => Err(format!("Error enabling {}:\n{:?}", self.path, reply))
         }
     }
-}
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UnitState { Bad, Disabled, Enabled, Indirect, Linked, Masked, Static }
-impl UnitState {
-    /// Takes the string containing the state information from the dbus message and converts it
-    /// into a UnitType by matching the first character.
-    pub fn new(x: &str) -> UnitState {
-        let x_as_chars: Vec<char> = x.chars().skip(6).take_while(|x| *x != '\"').collect();
-        match x_as_chars[0] {
-            's' => UnitState::Static,
-            'd' => UnitState::Disabled,
-            'e' => UnitState::Enabled,
-            'i' => UnitState::Indirect,
-            'l' => UnitState::Linked,
-            'm' => UnitState::Masked,
-            'b' => UnitState::Bad,
-            _ => panic!("Unknown State: {}", x),
+    /// Takes the unit pathname as input and disables it via dbus.
+    /// If dbus replies with `[Array([], "(sss)")]`, the service is already disabled.
+    fn disable(&self) -> Result<String, String> {
+        let mut message = dbus_message!("DisableUnitFiles");
+        message.append_items(&[[self.path.as_str()][..].into(), false.into()]);
+        match dbus_connect!(message) {
+            Ok(reply) => {
+                if format!("{:?}", reply.get_items()) == "[Array([], \"(sss)\")]" {
+                    Ok(format!("{} is already disabled", self.path))
+                } else {
+                    Ok(format!("{} has been disabled", self.path))
+                }
+            },
+            Err(reply) => Err(format!("Error disabling {}:\n{:?}", self.path, reply))
+        }
+    }
+
+    /// Takes a unit name as input and attempts to start it
+    fn start(&self) -> Result<String, String> {
+        let mut message = dbus_message!("StartUnit");
+        message.append_items(&[self.name.as_str().into(), "fail".into()]);
+        match dbus_connect!(message) {
+            Ok(_) => Ok(format!("{} successfully started", self.name)),
+            Err(error) => Err(format!("{} failed to start:\n{:?}", self.name, error))
+        }
+    }
+
+    /// Takes a unit name as input and attempts to stop it.
+    fn stop(&self) -> Result<String, String> {
+        let mut message = dbus_message!("StopUnit");
+        message.append_items(&[self.name.as_str().into(), "fail".into()]);
+        match dbus_connect!(message) {
+            Ok(_) => Ok(format!("{} successfully stopped", self.name)),
+            Err(error) => Err(format!("{} failed to stop:\n{:?}", self.name, error))
         }
     }
 }
@@ -85,14 +110,15 @@ pub fn list_unit_files() -> Vec<SystemdUnit> {
         // pathname of the unit, while the second variable contains the state of that unit.
         let mut systemd_units: Vec<SystemdUnit> = Vec::new();
         let mut iterator = message.split(',');
-        while let Some(name) = iterator.next() {
-            let name: String = name.chars().skip(14).take_while(|x| *x != '\"').collect();
-            let utype = UnitType::new(&name);
+        while let Some(path) = iterator.next() {
+            let path: String = path.chars().skip(14).take_while(|x| *x != '\"').collect();
+            let name: String = String::from(Path::new(&path).file_name().unwrap().to_str().unwrap());
+            let utype = UnitType::new(&path);
             let state = UnitState::new(iterator.next().unwrap());
-            systemd_units.push(SystemdUnit{name: name, state: state, utype: utype});
+            systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype});
         }
 
-        quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        quickersort::sort_by(&mut systemd_units[..], &|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
         systemd_units
     }
 
@@ -100,85 +126,23 @@ pub fn list_unit_files() -> Vec<SystemdUnit> {
     parse_message(&format!("{:?}", message))
 }
 
-/// Returns the current enablement status of the unit
-pub fn get_unit_file_state(path: &str) -> bool {
-    for unit in list_unit_files() {
-        if unit.name.as_str() == path { return unit.state == UnitState::Enabled; }
-    }
-    false
-}
-
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing services which can be enabled and
 /// disabled.
 pub fn collect_togglable_services(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Service && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.name.starts_with("/etc/") && !x.name.ends_with("@.service")).cloned().collect()
+        x.state == UnitState::Disabled) && !x.path.starts_with("/etc/") && !x.path.ends_with("@.service")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing sockets which can be enabled and
 /// disabled.
 pub fn collect_togglable_sockets(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Socket && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.name.ends_with("@.socket")).cloned().collect()
+        x.state == UnitState::Disabled) && !x.path.ends_with("@.socket")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing timers which can be enabled and
 /// disabled.
 pub fn collect_togglable_timers(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Timer && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.name.ends_with("@.timer")).cloned().collect()
-}
-
-/// Takes the unit pathname of a service and enables it via dbus.
-/// If dbus replies with `[Bool(true), Array([], "(sss)")]`, the service is already enabled.
-pub fn enable_unit_files(unit: &str) -> Result<String, String> {
-    let mut message = dbus_message!("EnableUnitFiles");
-    message.append_items(&[[unit][..].into(), false.into(), true.into()]);
-    match dbus_connect!(message) {
-        Ok(reply) => {
-            if format!("{:?}", reply.get_items()) == "[Bool(true), Array([], \"(sss)\")]" {
-                Ok(format!("{} already enabled", unit))
-            } else {
-                Ok(format!("{} has been enabled", unit))
-            }
-        },
-        Err(reply) => Err(format!("Error enabling {}:\n{:?}", unit, reply))
-    }
-}
-
-/// Takes the unit pathname as input and disables it via dbus.
-/// If dbus replies with `[Array([], "(sss)")]`, the service is already disabled.
-pub fn disable_unit_files(unit: &str) -> Result<String, String> {
-    let mut message = dbus_message!("DisableUnitFiles");
-    message.append_items(&[[unit][..].into(), false.into()]);
-    match dbus_connect!(message) {
-        Ok(reply) => {
-            if format!("{:?}", reply.get_items()) == "[Array([], \"(sss)\")]" {
-                Ok(format!("{} is already disabled", unit))
-            } else {
-                Ok(format!("{} has been disabled", unit))
-            }
-        },
-        Err(reply) => Err(format!("Error disabling {}:\n{:?}", unit, reply))
-    }
-}
-
-/// Takes a unit name as input and attempts to start it
-pub fn start_unit(unit: &str) -> Result<String, String> {
-    let mut message = dbus_message!("StartUnit");
-    message.append_items(&[unit.into(), "fail".into()]);
-    match dbus_connect!(message) {
-        Ok(_) => Ok(format!("{} successfully started", unit)),
-        Err(error) => Err(format!("{} failed to start:\n{:?}", unit, error))
-    }
-}
-
-/// Takes a unit name as input and attempts to stop it.
-pub fn stop_unit(unit: &str) -> Result<String, String> {
-    let mut message = dbus_message!("StopUnit");
-    message.append_items(&[unit.into(), "fail".into()]);
-    match dbus_connect!(message) {
-        Ok(_) => Ok(format!("{} successfully stopped", unit)),
-        Err(error) => Err(format!("{} failed to stop:\n{:?}", unit, error))
-    }
+        x.state == UnitState::Disabled) && !x.path.ends_with("@.timer")).cloned().collect()
 }
