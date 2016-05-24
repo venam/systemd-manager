@@ -374,6 +374,9 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                               <object class="GtkTextView" id="dependencies_view">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="left_margin">5</property>
+                                <property name="right_margin">5</property>
                               </object>
                             </child>
                           </object>
