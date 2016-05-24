@@ -7,14 +7,24 @@ pub struct Analyze {
 }
 
 impl Analyze {
-    /// Returns the results of `systemd-analyze blame`
+    /// Returns the results of `systemd-analyze blame` as a vector of `Analyze` units
     pub fn blame() -> Vec<Analyze> {
         String::from_utf8(Command::new("systemd-analyze").arg("blame").output().unwrap().stdout).unwrap()
-            .lines().rev().map(|x| parse_analyze(x)).collect::<Vec<Analyze>>()
+            .lines().rev().map(|x| parse_blame(x)).collect::<Vec<Analyze>>()
+    }
+
+    /// Returns the results of `systemd-analyze time` as three `String` values (`kernel`, `userspace`, `total`)
+    pub fn time() -> (String, String, String) {
+        let stdout = String::from_utf8(Command::new("systemd-analyze").arg("time").output().unwrap().stdout).unwrap();
+        let mut stdout = stdout.split_whitespace();
+        let kernel = String::from(stdout.nth(3).unwrap_or("N/A"));
+        let userspace = String::from(stdout.nth(2).unwrap_or("N/A"));
+        let total = String::from(stdout.nth(2).unwrap_or("N/A"));
+        (kernel, userspace, total)
     }
 }
 
-fn parse_analyze(x: &str) -> Analyze {
+fn parse_blame(x: &str) -> Analyze {
     let mut values: Vec<&str> = x.trim().split_whitespace().collect();
     let service = values.pop().unwrap();
     let time = values.iter().fold(0u32, |acc, x| acc + parse_time(x));

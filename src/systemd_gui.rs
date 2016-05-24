@@ -42,7 +42,7 @@ fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut 
     unit_box.pack_end(&running_state, false, false, 0);
     unit_box.pack_end(&enablement_state, false, false, 0);
     row.add(&unit_box);
-    
+
     active_icons.push(running_state);
     enable_icons.push(enablement_state);
 }
@@ -91,9 +91,13 @@ fn setup_systemd_analyze(builder: &gtk::Builder) {
 
     analyze_tree.set_model(Some(&analyze_store));
 
-    let total_time_label: gtk::Label = builder.get_object("time_to_boot").unwrap();
-    let time = (units.iter().last().unwrap().time as f32) / 1000f32;
-    total_time_label.set_label(format!("{} seconds", time).as_str());
+    let kernel_time:    gtk::Label = builder.get_object("kernel_time_label").unwrap();
+    let userspace_time: gtk::Label = builder.get_object("userspace_time_label").unwrap();
+    let total_time:     gtk::Label = builder.get_object("total_time_label").unwrap();
+    let times = Analyze::time();
+    kernel_time.set_label(times.0.as_str());
+    userspace_time.set_label(times.1.as_str());
+    total_time.set_label(times.2.as_str());
 }
 
 /// Updates the associated journal `TextView` with the contents of the unit's journal log.
@@ -130,7 +134,6 @@ pub fn launch() {
     let unit_journal: gtk::TextView            = builder.get_object("unit_journal_view").unwrap();
     let refresh_log_button: gtk::Button        = builder.get_object("refresh_log_button").unwrap();
     let header_service_label: gtk::Label       = builder.get_object("header_service_label").unwrap();
-    let action_buttons: gtk::Box               = builder.get_object("action_buttons").unwrap();
     let systemd_menu_label: gtk::Label         = builder.get_object("systemd_menu_label").unwrap();
     let systemd_units_button: gtk::MenuButton  = builder.get_object("systemd_units_button").unwrap();
     let main_window_stack: gtk::Stack          = builder.get_object("main_window_stack").unwrap();
@@ -138,6 +141,8 @@ pub fn launch() {
     let systemd_analyze: gtk::Button           = builder.get_object("systemd_analyze").unwrap();
     let systemd_menu_popover: gtk::PopoverMenu = builder.get_object("systemd_menu_popover").unwrap();
     let dependencies_view: gtk::TextView       = builder.get_object("dependencies_view").unwrap();
+    let analyze_header: gtk::HeaderBar         = builder.get_object("analyze_bar").unwrap();
+    let units_header: gtk::HeaderBar           = builder.get_object("right_bar").unwrap();
 
     macro_rules! units_menu_clicked {
         ($units_button:ident, $units:ident, $list:ident, $unit_type:expr) => {{
@@ -259,16 +264,16 @@ pub fn launch() {
         let systemd_analyze      = systemd_analyze.clone();
         let main_window_stack    = main_window_stack.clone();
         let systemd_menu_label   = systemd_menu_label.clone();
-        let header_service_label = header_service_label.clone();
-        let action_buttons       = action_buttons.clone();
+        let units_header         = units_header.clone();
+        let analyze_header       = analyze_header.clone();
         let systemd_units_button = systemd_units_button.clone();
         let popover              = systemd_menu_popover.clone();
         systemd_analyze.connect_clicked(move |_| {
             main_window_stack.set_visible_child_name("Systemd Analyze");
             systemd_menu_label.set_label("Systemd Analyze");
             systemd_units_button.set_visible(false);
-            header_service_label.set_visible(false);
-            action_buttons.set_visible(false);
+            units_header.set_visible(false);
+            analyze_header.set_visible(true);
             popover.set_visible(false);
         });
     }
@@ -277,16 +282,14 @@ pub fn launch() {
         let systemd_units_button = systemd_units_button.clone();
         let main_window_stack    = main_window_stack.clone();
         let systemd_menu_label   = systemd_menu_label.clone();
-        let header_service_label = header_service_label.clone();
-        let action_buttons       = action_buttons.clone();
         let systemd_units_button = systemd_units_button.clone();
         let popover              = systemd_menu_popover.clone();
         systemd_units.connect_clicked(move |_| {
             main_window_stack.set_visible_child_name("Systemd Units");
             systemd_menu_label.set_label("Systemd Units");
             systemd_units_button.set_visible(true);
-            header_service_label.set_visible(true);
-            action_buttons.set_visible(true);
+            units_header.set_visible(true);
+            analyze_header.set_visible(false);
             popover.set_visible(false);
         });
     }
