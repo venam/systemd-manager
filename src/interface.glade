@@ -512,6 +512,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                   <object class="GtkLabel" id="systemd_menu_label">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="tooltip_text" translatable="yes">Select View</property>
                     <property name="label" translatable="yes">Systemd Units</property>
                     <attributes>
                       <attribute name="weight" value="bold"/>
@@ -532,6 +533,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                   <object class="GtkLabel" id="unit_menu_label">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="tooltip_text" translatable="yes">Select unit type to display</property>
                     <property name="label" translatable="yes">Services</property>
                     <attributes>
                       <attribute name="weight" value="bold"/>
@@ -594,6 +596,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                   <object class="GtkSwitch" id="ablement_switch">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="tooltip_text" translatable="yes">Enable/Disable the currently-selected unit from starting at system boot</property>
                     <property name="valign">center</property>
                   </object>
                   <packing>
@@ -608,6 +611,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
+                    <property name="tooltip_text" translatable="yes">Stop the currently-selected unit</property>
                     <style>
                       <class name="destructive-action"/>
                     </style>
@@ -624,6 +628,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
+                    <property name="tooltip_text" translatable="yes">Start the currently-selected unit</property>
                     <property name="always_show_image">True</property>
                     <style>
                       <class name="suggested-action"/>
