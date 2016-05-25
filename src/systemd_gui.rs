@@ -20,7 +20,7 @@ fn update_icon(icon: &gtk::Image, state: bool) {
 /// Create a `gtk::ListboxRow` and add it to the `gtk::ListBox`, and then add the `gtk::Image` to a vector so that we can later modify
 /// it when the state changes.
 fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
-    let unit_label = gtk::Label::new(Some(&unit.name));
+    let unit_label = gtk::Label::new(Some(Path::new(&unit.name).file_stem().unwrap().to_str().unwrap()));
     unit_label.set_tooltip_text(get_unit_description(get_unit_info(unit.path.as_str()).as_str()));
 
     let running_state = if unit.is_active() {
