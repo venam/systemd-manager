@@ -1,7 +1,7 @@
 DESTDIR = /usr
 
 all:
-	cargo build --release
+	cargo rustc --release -- -C opt-level=3 -C lto
 
 install:
 	install -d $(DESTDIR)/bin/
@@ -22,6 +22,7 @@ ubuntu:
 	sudo apt install libgtk-3-dev
 	cargo build --release
 	strip target/release/systemd-manager
+	sed "s/amd64/$(dpkg --print-architecture)/g" -i debian/DEBIAN/control
 	install -d debian/usr/bin
 	install -d debian/usr/share/applications
 	install -d debian/usr/share/polkit-1/actions/

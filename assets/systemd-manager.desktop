@@ -1,5 +1,6 @@
 [Desktop Entry]
 Name=Systemd Manager
+Comment=GTK3-based systemd service manager written in Rust.
 Icon=preferences-system
 Exec=systemd-manager-pkexec
 Terminal=false
