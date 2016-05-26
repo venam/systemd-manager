@@ -36,15 +36,22 @@
 <h2>
 <a id="screenshots" class="anchor" href="#screenshots" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Screenshots</h2>
 
-<p><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-services.png" alt="Services"></p>
+<div>
+    <div style="float:left"><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-services.png" alt="Services"></div>
+    <div style="float:left"><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-sockets.png" alt="Sockets"></div>
+    <div style="clear: both;"></div>
+</div>
 
-<p><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-sockets.png" alt="Sockets"></p>
+<div>
+    <div style="float:left"><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-timers.png" alt="Timers"></div>
+    <div style="float:left"><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-journal.png" alt="Journal"></div>
+    <div style="clear: both;"></div>
+</div>
 
-<p><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-timers.png" alt="Timers"></p>
-
-<p><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-journal.png" alt="Journal"></p>
-
-<p><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-analyze.png" alt="Analyze"></p>
+<div>
+    <div style="float:left"><img src="https://github.com/mmstick/systemd-manager/raw/master/screenshot-analyze.png" alt="Analyze"></div>
+    <div style="clear: both;"></div>
+</div>
 
 <h2>
 <a id="install-instructions" class="anchor" href="#install-instructions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Install Instructions</h2>
@@ -65,13 +72,16 @@ sudo dpkg -i systemd-manager_0.4.5_amd64.deb</pre></div>
 <h3>
 <a id="building-from-source" class="anchor" href="#building-from-source" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Building From Source</h3>
 
+<h4> <a id="ubuntu-source" class="anchor" href="#ubuntu-source" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Ubuntu</h4>
+
 <p>For Ubuntu users, this will automatically install <code>libgtk-3-dev</code>, generate a systemd-manager Debian package and automatically install it.</p>
 
-<div class="highlight highlight-source-shell"><pre>make ubuntu</pre></div>
+<div class="highlight highlight-source-shell"><pre>git clone https://github.com/mmstick/systemd-manager <span class="pl-k">&amp;&amp;</span> make ubuntu</pre></div>
 
-<p>For everyone else, this will simply install directly to the /usr prefix. Simply install Rust via <a href="https://www.rustup.rs/">rustup.rs</a> and execute <code>make &amp; sudo make install</code>. The installation of Rust software is incredibly simple as the process is largely just <code>cargo build --release</code>, but this installation script will install all the files needed by the application for proper integration with <strong>PolicyKit</strong> into the correct places in the filesystem, which <code>cargo install</code> does not perform.</p>
+<h4> <a id="everyone-else-source" class="anchor" href="#everyone-source" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Everyone Else</h4>
+<p>For everyone else, this will simply install directly to the /usr prefix. Simply install Rust via <a href="https://www.rustup.rs/">rustup.rs</a> and execute <code>make <span class="pl-k">&amp;&amp;</span> sudo make install</code>. The installation of Rust software is incredibly simple as the process is largely just <code>cargo build --release</code>, but this installation script will install all the files needed by the application for proper integration with <strong>PolicyKit</strong> into the correct places in the filesystem, which <code>cargo install</code> does not perform.</p>
 
-<div class="highlight highlight-source-shell"><pre>make <span class="pl-k">&amp;&amp;</span> sudo make install</pre></div>
+<div class="highlight highlight-source-shell"><pre>git clone https://github.com/mmstick/systemd-manager <span class="pl-k">&amp;&amp;</span> make <span class="pl-k">&amp;&amp;</span> sudo make install</pre></div>
 
 <p>In the event that you would like to uninstall the application, simply run the following:</p>
 
@@ -87,7 +97,7 @@ sudo dpkg -i systemd-manager_0.4.5_amd64.deb</pre></div>
       </footer>
     </div>
 
-    
+
 
   </body>
 </html>
