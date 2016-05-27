@@ -107,9 +107,28 @@ fn update_journal(journal: &gtk::TextView, unit: &str) {
 
 /// Obtains the journal log for the given unit.
 fn get_unit_journal(unit: &str) -> String {
-    let log = String::from_utf8(Command::new("journalctl").arg("-b").arg("-u").arg(unit)
-        .output().unwrap().stdout).unwrap();
-    log.lines().rev().map(|x| x.trim()).fold(String::with_capacity(log.len()), |acc, x| acc + "\n" + x)
+    match Command::new("journalctl").arg("-b").arg("-u").arg(unit).output() {
+        Ok(output) => {
+            String::from_utf8_lossy(&output.stdout).lines().rev().map(|x| x.trim())
+                .fold(String::with_capacity(output.stdout.len()),|acc, x| acc + "\n" + x)
+        },
+        Err(_) => String::from("")
+    }
+}
+
+enum ButtonLayout { Left, Right }
+
+fn get_button_layout() -> ButtonLayout {
+    match Command::new("gsettings").arg("get").arg("org.gnome.desktop.wm.preferences").arg("button-layout").output() {
+        Ok(output) => {
+            let mut left = String::with_capacity(output.stdout.len());
+            for byte in output.stdout.iter().take_while(|x| **x != b':') {
+                left.push(*byte as char);
+            }
+            if left.contains("close") { ButtonLayout::Left } else { ButtonLayout::Right }
+        },
+        Err(_) => ButtonLayout::Right
+    }
 }
 
 pub fn launch() {
@@ -141,8 +160,22 @@ pub fn launch() {
     let systemd_analyze: gtk::Button           = builder.get_object("systemd_analyze").unwrap();
     let systemd_menu_popover: gtk::PopoverMenu = builder.get_object("systemd_menu_popover").unwrap();
     let dependencies_view: gtk::TextView       = builder.get_object("dependencies_view").unwrap();
+    let left_bar: gtk::HeaderBar               = builder.get_object("left_bar").unwrap();
     let analyze_header: gtk::HeaderBar         = builder.get_object("analyze_bar").unwrap();
     let units_header: gtk::HeaderBar           = builder.get_object("right_bar").unwrap();
+
+    match get_button_layout() {
+        ButtonLayout::Right => {
+            left_bar.set_show_close_button(false);
+            units_header.set_show_close_button(true);
+            analyze_header.set_show_close_button(true);
+        },
+        ButtonLayout::Left => {
+            left_bar.set_show_close_button(true);
+            units_header.set_show_close_button(false);
+            analyze_header.set_show_close_button(false);
+        }
+    }
 
     macro_rules! units_menu_clicked {
         ($units_button:ident, $units:ident, $list:ident, $unit_type:expr) => {{
