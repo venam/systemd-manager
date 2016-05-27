@@ -24,6 +24,7 @@ impl Analyze {
     }
 }
 
+/// Parses the stdout of an individual line of the `systemd-analyze blame` command and returns it as an `Analyze` unit.
 fn parse_blame(x: &str) -> Analyze {
     let mut values: Vec<&str> = x.trim().split_whitespace().collect();
     let service = values.pop().unwrap();
@@ -34,6 +35,7 @@ fn parse_blame(x: &str) -> Analyze {
     }
 }
 
+/// Parses a unit of a time in milliseconds
 fn parse_time(input: &str) -> u32 {
     if input.ends_with("ms") {
         input[0..input.len()-2].parse::<u32>().unwrap_or(0)
@@ -49,17 +51,17 @@ fn parse_time(input: &str) -> u32 {
 #[test]
 fn test_analyze_minutes() {
     let correct = Analyze{time: 218514, service: String::from("updatedb.service")};
-    assert_eq!(correct, parse_analyze("3min 38.514s updatedb.service"));
+    assert_eq!(correct, parse_blame("3min 38.514s updatedb.service"));
 }
 
 #[test]
 fn test_analyze_seconds() {
     let correct = Analyze{time: 15443, service: String::from("openntpd.service")};
-    assert_eq!(correct, parse_analyze("15.443s openntpd.service"));
+    assert_eq!(correct, parse_blame("15.443s openntpd.service"));
 }
 
 #[test]
 fn test_analyze_milliseconds() {
     let correct = Analyze{time: 1989, service: String::from("systemd-sysctl.service")};
-    assert_eq!(correct, parse_analyze("1989ms systemd-sysctl.service"));
+    assert_eq!(correct, parse_blame("1989ms systemd-sysctl.service"));
 }
