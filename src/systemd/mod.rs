@@ -35,7 +35,7 @@ impl UnitType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UnitState { Bad, Disabled, Enabled, Indirect, Linked, Masked, Static }
+pub enum UnitState { Bad, Disabled, Enabled, Generated, Indirect, Linked, Masked, Static, Transient }
 impl UnitState {
     /// Takes the string containing the state information from the dbus message and converts it
     /// into a UnitType by matching the first character.
@@ -49,6 +49,8 @@ impl UnitState {
             'l' => UnitState::Linked,
             'm' => UnitState::Masked,
             'b' => UnitState::Bad,
+            'g' => UnitState::Generated,
+            't' => UnitState::Transient,
             _   => panic!("Unknown State: {}", x),
         }
     }
