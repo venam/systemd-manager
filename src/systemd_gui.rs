@@ -350,86 +350,48 @@ pub fn launch() {
         let timers_icons_enabled   = timers_icons_enabled.clone();
         let unit_stack             = unit_stack.clone();
         ablement_switch.connect_state_set(move |switch, enabled| {
-            match unit_stack.get_visible_child_name().unwrap().as_str() {
+            let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
-                    let index   = match services_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match services_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let service = &services[index as usize];
-                    if enabled && !service.is_enabled() {
-                        match service.enable() {
-                            Ok(message)  => {
-                                println!("{}", message);
-                                update_icon(&services_icons_enabled[index as usize], true);
-                            },
-                            Err(message) => println!("{}", message)
-                        }
-                        switch.set_state(true);
-                    } else if !enabled && service.is_enabled() {
-                        match service.disable() {
-                            Ok(message)  => {
-                                println!("{}", message);
-                                update_icon(&services_icons_enabled[index as usize], false);
-                            },
-                            Err(message) => println!("{}", message)
-                        }
-                        switch.set_state(false);
-                    }
+                    (&services[index], &services_icons_enabled[index])
                 },
                 "Sockets" => {
-                    let index   = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match sockets_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let socket  = &sockets[index as usize];
-                    if enabled && !socket.is_enabled() {
-                        match socket.enable() {
-                            Ok(message)  => {
-                                println!("{}", message);
-                                update_icon(&sockets_icons_enabled[index as usize], true);
-                            },
-                            Err(message) => println!("{}", message)
-                        }
-                        switch.set_state(true);
-                    } else if !enabled && socket.is_enabled() {
-                        match socket.disable() {
-                            Ok(message)  => {
-                                println!("{}", message);
-                                update_icon(&sockets_icons_enabled[index as usize], false);
-                            },
-                            Err(message) => println!("{}", message)
-                        }
-                        switch.set_state(false);
-                    }
+                    (&sockets[index], &sockets_icons_enabled[index])
                 },
                 "Timers" => {
-                    let index   = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match timers_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let timer  = &timers[index as usize];
-                    if enabled && !timer.is_enabled() {
-                        match timer.enable() {
-                            Ok(message)  => {
-                                println!("{}", message);
-                                update_icon(&timers_icons_enabled[index as usize], true);
-                            },
-                            Err(message) => println!("{}", message)
-                        }
-                        switch.set_state(true);
-                    } else if !enabled && timer.is_enabled() {
-                        match timer.disable() {
-                            Ok(message)  => {
-                                println!("{}", message);
-                                update_icon(&sockets_icons_enabled[index as usize], false);
-                            },
-                            Err(message) => println!("{}", message)
-                        }
-                        switch.set_state(false);
-                    }
+                    (&timers[index], &timers_icons_enabled[index])
                 },
                 _ => unreachable!()
+            };
+            if enabled && !unit.is_enabled() {
+                match unit.enable() {
+                    Ok(message)  => {
+                        println!("{}", message);
+                        update_icon(&icon, true);
+                    },
+                    Err(message) => println!("{}", message)
+                }
+                switch.set_state(true);
+            } else if !enabled && unit.is_enabled() {
+                match unit.disable() {
+                    Ok(message)  => {
+                        println!("{}", message);
+                        update_icon(&icon, false);
+                    },
+                    Err(message) => println!("{}", message)
+                }
+                switch.set_state(false);
             }
             gtk::Inhibit(true)
         });
