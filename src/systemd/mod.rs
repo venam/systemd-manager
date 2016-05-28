@@ -40,8 +40,7 @@ impl UnitState {
     /// Takes the string containing the state information from the dbus message and converts it
     /// into a UnitType by matching the first character.
     pub fn new(x: &str) -> UnitState {
-        let x_as_chars: Vec<char> = x.chars().skip(6).take_while(|x| *x != '\"').collect();
-        match x_as_chars[0] {
+        match x.chars().skip(6).take_while(|x| *x != '\"').next().unwrap() {
             's' => UnitState::Static,
             'd' => UnitState::Disabled,
             'e' => UnitState::Enabled,
