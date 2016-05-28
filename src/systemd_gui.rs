@@ -448,57 +448,42 @@ pub fn launch() {
         let unit_stack            = unit_stack.clone();
         let start_button          = start_button.clone();
         let stop_button           = stop_button.clone();
+        let unit_journal          = unit_journal.clone();
         start_button.connect_clicked(move |button| {
-            match unit_stack.get_visible_child_name().unwrap().as_str() {
+            let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
-                    let index   = match services_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match services_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let service = &services[index as usize];
-                    match service.start() {
-                        Ok(message) => {
-                            println!("{}", message);
-                            update_icon(&services_icons_active[index as usize], true);
-                            button.set_visible(false);
-                            stop_button.set_visible(true);
-                        },
-                        Err(message) => println!("{}", message)
-                    }
+                    (&services[index], &services_icons_active[index])
                 },
                 "Sockets" => {
-                    let index   = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match sockets_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let socket  = &sockets[index as usize];
-                    match socket.start() {
-                        Ok(message) => {
-                            println!("{}", message);
-                            update_icon(&sockets_icons_active[index as usize], true);
-                            button.set_visible(false);
-                            stop_button.set_visible(true);
-                        },
-                        Err(message) => println!("{}", message)
-                    }
+                    (&sockets[index], &sockets_icons_active[index])
                 },
                 "Timers" => {
-                    let index   = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match timers_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let timer  = &timers[index as usize];
-                    match timer.start() {
-                        Ok(message) => {
-                            println!("{}", message);
-                            update_icon(&timers_icons_active[index as usize], true);
-                            button.set_visible(false);
-                            stop_button.set_visible(true);
-                        },
-                        Err(message) => println!("{}", message)
-                    }
+                    (&timers[index], &timers_icons_active[index])
+
                 },
-                _ => ()
+                _ => unreachable!()
+            };
+            match unit.start() {
+                Ok(message) => {
+                   println!("{}", message);
+                   update_journal(&unit_journal, &unit.name);
+                   update_icon(icon, true);
+                   button.set_visible(false);
+                   stop_button.set_visible(true);
+               },
+               Err(message) => println!("{}", message)
             }
         });
     }
@@ -516,57 +501,42 @@ pub fn launch() {
         let unit_stack            = unit_stack.clone();
         let start_button          = start_button.clone();
         let stop_button           = stop_button.clone();
+        let unit_journal          = unit_journal.clone();
         stop_button.connect_clicked(move |button| {
-            match unit_stack.get_visible_child_name().unwrap().as_str() {
+            let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
-                    let index   = match services_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match services_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let service = &services[index as usize];
-                    match service.stop() {
-                        Ok(message) => {
-                            println!("{}", message);
-                            update_icon(&services_icons_active[index as usize], false);
-                            button.set_visible(false);
-                            start_button.set_visible(true);
-                        },
-                        Err(message) => println!("{}", message)
-                    }
+                    (&services[index], &services_icons_active[index])
                 },
                 "Sockets" => {
-                    let index   = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match sockets_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let socket = &sockets[index as usize];
-                    match socket.stop() {
-                        Ok(message) => {
-                            println!("{}", message);
-                            update_icon(&sockets_icons_active[index as usize], false);
-                            button.set_visible(false);
-                            start_button.set_visible(true);
-                        },
-                        Err(message) => println!("{}", message)
-                    }
+                    (&sockets[index], &sockets_icons_active[index])
                 },
                 "Timers" => {
-                    let index   = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index(),
+                    let index = match timers_list.get_selected_row() {
+                        Some(row) => row.get_index() as usize,
                         None      => 0
                     };
-                    let timer = &timers[index as usize];
-                    match timer.stop() {
-                        Ok(message) => {
-                            println!("{}", message);
-                            update_icon(&timers_icons_active[index as usize], false);
-                            button.set_visible(false);
-                            start_button.set_visible(true);
-                        },
-                        Err(message) => println!("{}", message)
-                    }
+                    (&timers[index], &timers_icons_active[index])
+
                 },
-                _ => ()
+                _ => unreachable!()
+            };
+            match unit.stop() {
+                Ok(message) => {
+                    println!("{}", message);
+                    update_journal(&unit_journal, &unit.name);
+                    update_icon(icon, false);
+                    button.set_visible(false);
+                    start_button.set_visible(true);
+                },
+                Err(message) => println!("{}", message)
             }
         });
     }
