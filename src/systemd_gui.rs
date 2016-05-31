@@ -518,9 +518,9 @@ pub fn launch() {
             let end    = buffer.get_end_iter();
             let text   = buffer.get_text(&start, &end, true).unwrap();
             let path = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize].name,
-                "Sockets" => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].name,
-                "Timers" => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].name,
+                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize].path,
+                "Sockets" => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].path,
+                "Timers" => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].path,
                 _ => unreachable!()
             };
             match fs::OpenOptions::new().write(true).open(&path) {
