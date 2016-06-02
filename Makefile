@@ -22,6 +22,7 @@ ubuntu:
 	sudo apt install libgtk-3-dev
 	cargo build --release
 	strip target/release/systemd-manager
+	sed "2s/.*/Version: $(shell awk 'NR == 3 {print substr($3, 2, length($3)-2)}' Cargo.toml)/g" -i debian/DEBIAN/control
 	sed "7s/.*/Architecture: $(shell dpkg --print-architecture)/g" -i debian/DEBIAN/control
 	install -d debian/usr/bin
 	install -d debian/usr/share/applications

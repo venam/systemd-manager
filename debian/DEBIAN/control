@@ -1,9 +1,9 @@
 Package: systemd-manager
-Version: 0.4.5
+Version: $version
 Section: admin
 Priority: optional
 Standards-Version: 3.9.4
 Maintainer: Michael Aaron Murphy <mmstickman@gmail.com>
-Architecture: amd64
+Architecture: $arch
 Depends: libc6, libgtk-3-0 (>= 3.16)
 Description: GTK3-based systemd service manager written in Rust
