@@ -1,12 +1,14 @@
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::Path;
-use std::process::Command;
 
-use systemd::{UnitState, SystemdUnit};
+use systemd::{self, UnitState, SystemdUnit};
 use systemd::systemctl::Systemctl;
 use systemd::dbus::{self, Dbus};
 use systemd::analyze::Analyze;
+
+mod button_layout;
+use self::button_layout::ButtonLayout;
 
 use gtk;
 use gtk::prelude::*;
@@ -21,7 +23,7 @@ fn update_icon(icon: &gtk::Image, state: bool) {
 /// it when the state changes.
 fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
     let unit_label = gtk::Label::new(Some(Path::new(&unit.name).file_stem().unwrap().to_str().unwrap()));
-    unit_label.set_tooltip_text(get_unit_description(get_unit_info(unit.path.as_str()).as_str()));
+    unit_label.set_tooltip_text(systemd::get_unit_description(unit.get_info().as_str()));
 
     let running_state = if unit.is_active() {
         gtk::Image::new_from_stock("gtk-yes", 4)
@@ -45,22 +47,6 @@ fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut 
 
     active_icons.push(running_state);
     enable_icons.push(enablement_state);
-}
-
-/// Read the unit file and return it's contents so that we can display it in the `gtk::TextView`.
-fn get_unit_info<P: AsRef<Path>>(path: P) -> String {
-    let mut file = fs::File::open(path).unwrap();
-    let mut output = String::new();
-    let _ = file.read_to_string(&mut output);
-    output
-}
-
-/// Obtain the description from the unit file and return it.
-fn get_unit_description(info: &str) -> Option<&str> {
-    match info.lines().find(|x| x.starts_with("Description=")) {
-        Some(description) => Some(description.split_at(12).1),
-        None => None
-    }
 }
 
 /// Use `systemd-analyze blame` to fill out the information for the Analyze `gtk::Stack`.
@@ -94,49 +80,15 @@ fn setup_systemd_analyze(builder: &gtk::Builder) {
     let kernel_time:    gtk::Label = builder.get_object("kernel_time_label").unwrap();
     let userspace_time: gtk::Label = builder.get_object("userspace_time_label").unwrap();
     let total_time:     gtk::Label = builder.get_object("total_time_label").unwrap();
-    let times = Analyze::time();
+    let times                      = Analyze::time();
     kernel_time.set_label(times.0.as_str());
     userspace_time.set_label(times.1.as_str());
     total_time.set_label(times.2.as_str());
 }
 
 /// Updates the associated journal `TextView` with the contents of the unit's journal log.
-fn update_journal(journal: &gtk::TextView, unit: &str) {
-    journal.get_buffer().unwrap().set_text(get_unit_journal(unit).as_str());
-}
-
-/// Obtains the journal log for the given unit.
-fn get_unit_journal(unit: &str) -> String {
-    match Command::new("journalctl").arg("-b").arg("-r").arg("-u").arg(unit).output() {
-        Ok(output) => String::from_utf8(output.stdout).unwrap(),
-        Err(_)     => String::from("")
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum ButtonLayout { Left, Right }
-
-/// Uses the `gsettings` command to determine whether the window controls are set to the left or right.
-fn get_button_layout() -> ButtonLayout {
-    match Command::new("gsettings").arg("get").arg("org.gnome.desktop.wm.preferences").arg("button-layout").output() {
-        Ok(output) => parse_button_layout(&output.stdout),
-        Err(_) => ButtonLayout::Right
-    }
-}
-
-/// Parses the stdout of the `gsettings` command to determine whether the controls are set to the left or right.
-fn parse_button_layout(stdout: &[u8]) -> ButtonLayout {
-    let mut left = String::with_capacity(stdout.len());
-    for byte in stdout.iter().take_while(|x| **x != b':') {
-        left.push(*byte as char);
-    }
-    if left.contains("close") { ButtonLayout::Left } else { ButtonLayout::Right }
-}
-
-#[test]
-fn test_parse_button_layout() {
-    assert_eq!(parse_button_layout(b"appmenu:close"), ButtonLayout::Right);
-    assert_eq!(parse_button_layout(b"close,minimize,maximize:menu"), ButtonLayout::Left);
+fn update_journal(journal: &gtk::TextView, unit: &SystemdUnit) {
+    journal.get_buffer().unwrap().set_text(unit.get_journal().as_str());
 }
 
 pub fn launch() {
@@ -171,7 +123,7 @@ pub fn launch() {
     let analyze_header: gtk::HeaderBar         = builder.get_object("analyze_bar").unwrap();
     let units_header: gtk::HeaderBar           = builder.get_object("right_bar").unwrap();
 
-    match get_button_layout() {
+    match button_layout::get() {
         ButtonLayout::Right => {
             left_bar.set_show_close_button(false);
             units_header.set_show_close_button(true);
@@ -203,11 +155,11 @@ pub fn launch() {
                 popover.set_visible(false);
                 $list.select_row(Some(&$list.get_row_at_index(0).unwrap()));
                 let unit = &$units[0];
-                let info = get_unit_info(&unit.path);
+                let info = unit.get_info();
                 unit_info.get_buffer().unwrap().set_text(info.as_str());
                 ablement_switch.set_active(unit.is_enabled());
                 ablement_switch.set_state(ablement_switch.get_active());
-                match get_unit_description(&info) {
+                match systemd::get_unit_description(&info) {
                     Some(description) => header.set_label(description),
                     None              => header.set_label(&unit.name)
                 }
@@ -249,12 +201,12 @@ pub fn launch() {
             $list.connect_row_selected(move |_, row| {
                 if let Some(row) = row.clone() {
                     let unit        = &$units[row.get_index() as usize];
-                    let description = get_unit_info(&unit.path);
+                    let description = unit.get_info();
                     unit_info.get_buffer().unwrap().set_text(description.as_str());
                     ablement_switch.set_active(unit.is_enabled());
                     ablement_switch.set_state(ablement_switch.get_active());
                     header.set_label(unit.name.as_str());
-                    match get_unit_description(&description) {
+                    match systemd::get_unit_description(&description) {
                         Some(description) => header.set_label(description),
                         None              => header.set_label(&unit.name)
                     }
@@ -307,12 +259,12 @@ pub fn launch() {
         let unit_journal  = unit_journal.clone();
         gtk::timeout_add_seconds(1, move || {
             let unit = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize],
-                "Sockets"  => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize],
-                "Timers"   => &timers[timers_list.get_selected_row().unwrap().get_index() as usize],
+                "Services" => unsafe { services.get_unchecked(services_list.get_selected_row().unwrap().get_index() as usize) },
+                "Sockets"  => unsafe { sockets.get_unchecked(sockets_list.get_selected_row().unwrap().get_index() as usize) },
+                "Timers"   => unsafe { timers.get_unchecked(timers_list.get_selected_row().unwrap().get_index() as usize) },
                 _          => unreachable!()
             };
-            update_journal(&unit_journal, &unit.name);
+            update_journal(&unit_journal, unit);
             gtk::Continue(true)
         });
     }
@@ -391,7 +343,7 @@ pub fn launch() {
                 match unit.enable() {
                     Ok(message)  => {
                         println!("{}", message);
-                        update_icon(&icon, true);
+                        update_icon(icon, true);
                     },
                     Err(message) => println!("{}", message)
                 }
@@ -400,7 +352,7 @@ pub fn launch() {
                 match unit.disable() {
                     Ok(message)  => {
                         println!("{}", message);
-                        update_icon(&icon, false);
+                        update_icon(icon, false);
                     },
                     Err(message) => println!("{}", message)
                 }
