@@ -197,7 +197,6 @@ pub fn launch() {
             let $list           = $list.clone();
             let unit_info       = unit_info.clone();
             let ablement_switch = ablement_switch.clone();
-            let unit_journal    = unit_journal.clone();
             let header          = header_service_label.clone();
             let start_button    = start_button.clone();
             let stop_button     = stop_button.clone();
@@ -212,7 +211,6 @@ pub fn launch() {
                 unit_info.get_buffer().unwrap().set_text(info.as_str());
                 ablement_switch.set_active(unit.is_enabled());
                 ablement_switch.set_state(ablement_switch.get_active());
-                update_journal(&unit_journal, &unit.name);
                 match get_unit_description(&info) {
                     Some(description) => header.set_label(description),
                     None              => header.set_label(&unit.name)
@@ -248,7 +246,6 @@ pub fn launch() {
             let $list           = $list.clone();
             let unit_info       = unit_info.clone();
             let ablement_switch = ablement_switch.clone();
-            let unit_journal    = unit_journal.clone();
             let header          = header_service_label.clone();
             let stop_button     = stop_button.clone();
             let start_button    = start_button.clone();
@@ -260,7 +257,6 @@ pub fn launch() {
                     unit_info.get_buffer().unwrap().set_text(description.as_str());
                     ablement_switch.set_active(unit.is_enabled());
                     ablement_switch.set_state(ablement_switch.get_active());
-                    update_journal(&unit_journal, &unit.name);
                     header.set_label(unit.name.as_str());
                     match get_unit_description(&description) {
                         Some(description) => header.set_label(description),
@@ -303,6 +299,27 @@ pub fn launch() {
     units_menu_clicked!(services_button, services, services_list, "Services");
     units_menu_clicked!(sockets_button, sockets, sockets_list, "Sockets");
     units_menu_clicked!(timers_button, timers, timers_list, "Timers");
+
+    { // NOTE: Refresh the journal every second
+        let services      = services.clone();
+        let services_list = services_list.clone();
+        let sockets       = sockets.clone();
+        let sockets_list  = sockets_list.clone();
+        let timers        = timers.clone();
+        let timers_list   = timers_list.clone();
+        let unit_stack    = unit_stack.clone();
+        let unit_journal  = unit_journal.clone();
+        gtk::timeout_add_seconds(1, move || {
+            let unit = match unit_stack.get_visible_child_name().unwrap().as_str() {
+                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize].name,
+                "Sockets"  => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].name,
+                "Timers"   => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].name,
+                _          => unreachable!()
+            };
+            update_journal(&unit_journal, &unit);
+            gtk::Continue(true)
+        });
+    }
 
     { // NOTE: Program the Systemd Analyze Button
         let systemd_analyze      = systemd_analyze.clone();
@@ -410,7 +427,6 @@ pub fn launch() {
         let unit_stack            = unit_stack.clone();
         let start_button          = start_button.clone();
         let stop_button           = stop_button.clone();
-        let unit_journal          = unit_journal.clone();
         start_button.connect_clicked(move |button| {
             let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
@@ -440,7 +456,6 @@ pub fn launch() {
             match unit.start() {
                 Ok(message) => {
                    println!("{}", message);
-                   update_journal(&unit_journal, &unit.name);
                    update_icon(icon, true);
                    button.set_visible(false);
                    stop_button.set_visible(true);
@@ -463,7 +478,6 @@ pub fn launch() {
         let unit_stack            = unit_stack.clone();
         let start_button          = start_button.clone();
         let stop_button           = stop_button.clone();
-        let unit_journal          = unit_journal.clone();
         stop_button.connect_clicked(move |button| {
             let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => {
@@ -493,7 +507,6 @@ pub fn launch() {
             match unit.stop() {
                 Ok(message) => {
                     println!("{}", message);
-                    update_journal(&unit_journal, &unit.name);
                     update_icon(icon, false);
                     button.set_visible(false);
                     start_button.set_visible(true);
@@ -519,9 +532,9 @@ pub fn launch() {
             let text   = buffer.get_text(&start, &end, true).unwrap();
             let path = match unit_stack.get_visible_child_name().unwrap().as_str() {
                 "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize].path,
-                "Sockets" => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].path,
-                "Timers" => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].path,
-                _ => unreachable!()
+                "Sockets"  => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].path,
+                "Timers"   => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].path,
+                _          => unreachable!()
             };
             match fs::OpenOptions::new().write(true).open(&path) {
                 Ok(mut file) => {
