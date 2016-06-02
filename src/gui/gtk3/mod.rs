@@ -91,6 +91,15 @@ fn update_journal(journal: &gtk::TextView, unit: &SystemdUnit) {
     journal.get_buffer().unwrap().set_text(unit.get_journal().as_str());
 }
 
+/// Obtains the currently-selected unit and it's associated icon
+fn get_current_unit<'a>(units: &'a [SystemdUnit], units_box: &gtk::ListBox, icons: &'a [gtk::Image]) -> (&'a SystemdUnit, &'a gtk::Image) {
+    let index = match units_box.get_selected_row() {
+        Some(row) => row.get_index() as usize,
+        None      => 0
+    };
+    unsafe { (units.get_unchecked(index), icons.get_unchecked(index)) }
+}
+
 pub fn launch() {
     gtk::init().unwrap_or_else(|_| panic!("systemd-manager: failed to initialize GTK."));
 
@@ -198,9 +207,11 @@ pub fn launch() {
             let stop_button     = stop_button.clone();
             let start_button    = start_button.clone();
             let dependencies    = dependencies_view.clone();
+            let unit_journal    = unit_journal.clone();
             $list.connect_row_selected(move |_, row| {
                 if let Some(row) = row.clone() {
                     let unit        = &$units[row.get_index() as usize];
+                    update_journal(&unit_journal, &unit);
                     let description = unit.get_info();
                     unit_info.get_buffer().unwrap().set_text(description.as_str());
                     ablement_switch.set_active(unit.is_enabled());
@@ -218,7 +229,7 @@ pub fn launch() {
                         stop_button.set_visible(false);
                     }
 
-                    dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str())
+                    dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str());
                 }
             });
         }}
@@ -316,28 +327,10 @@ pub fn launch() {
         let unit_stack             = unit_stack.clone();
         ablement_switch.connect_state_set(move |switch, enabled| {
             let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => {
-                    let index = match services_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&services[index], &services_icons_enabled[index])
-                },
-                "Sockets" => {
-                    let index = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&sockets[index], &sockets_icons_enabled[index])
-                },
-                "Timers" => {
-                    let index = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&timers[index], &timers_icons_enabled[index])
-                },
-                _ => unreachable!()
+                "Services" => get_current_unit(&services, &services_list, &services_icons_enabled),
+                "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_enabled),
+                "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_enabled),
+                _          => unreachable!()
             };
             if enabled && !unit.is_enabled() {
                 match unit.enable() {
@@ -377,28 +370,9 @@ pub fn launch() {
         let stop_button           = stop_button.clone();
         start_button.connect_clicked(move |button| {
             let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => {
-                    let index = match services_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&services[index], &services_icons_active[index])
-                },
-                "Sockets" => {
-                    let index = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&sockets[index], &sockets_icons_active[index])
-                },
-                "Timers" => {
-                    let index = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&timers[index], &timers_icons_active[index])
-
-                },
+                "Services" => get_current_unit(&services, &services_list, &services_icons_active),
+                "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
+                "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
                 _ => unreachable!()
             };
             match unit.start() {
@@ -428,28 +402,9 @@ pub fn launch() {
         let stop_button           = stop_button.clone();
         stop_button.connect_clicked(move |button| {
             let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => {
-                    let index = match services_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&services[index], &services_icons_active[index])
-                },
-                "Sockets" => {
-                    let index = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&sockets[index], &sockets_icons_active[index])
-                },
-                "Timers" => {
-                    let index = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index() as usize,
-                        None      => 0
-                    };
-                    (&timers[index], &timers_icons_active[index])
-
-                },
+                "Services" => get_current_unit(&services, &services_list, &services_icons_active),
+                "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
+                "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
                 _ => unreachable!()
             };
             match unit.stop() {
