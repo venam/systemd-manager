@@ -107,12 +107,9 @@ fn update_journal(journal: &gtk::TextView, unit: &str) {
 
 /// Obtains the journal log for the given unit.
 fn get_unit_journal(unit: &str) -> String {
-    match Command::new("journalctl").arg("-b").arg("-u").arg(unit).output() {
-        Ok(output) => {
-            String::from_utf8_lossy(&output.stdout).lines().rev().map(|x| x.trim())
-                .fold(String::with_capacity(output.stdout.len()),|acc, x| acc + "\n" + x)
-        },
-        Err(_) => String::from("")
+    match Command::new("journalctl").arg("-b").arg("-r").arg("-u").arg(unit).output() {
+        Ok(output) => String::from_utf8(output.stdout).unwrap(),
+        Err(_)     => String::from("")
     }
 }
 
@@ -162,7 +159,6 @@ pub fn launch() {
     let sockets_button: gtk::Button            = builder.get_object("sockets_button").unwrap();
     let timers_button: gtk::Button             = builder.get_object("timers_button").unwrap();
     let unit_journal: gtk::TextView            = builder.get_object("unit_journal_view").unwrap();
-    let refresh_log_button: gtk::Button        = builder.get_object("refresh_log_button").unwrap();
     let header_service_label: gtk::Label       = builder.get_object("header_service_label").unwrap();
     let systemd_menu_label: gtk::Label         = builder.get_object("systemd_menu_label").unwrap();
     let systemd_units_button: gtk::MenuButton  = builder.get_object("systemd_units_button").unwrap();
@@ -311,12 +307,12 @@ pub fn launch() {
         let unit_journal  = unit_journal.clone();
         gtk::timeout_add_seconds(1, move || {
             let unit = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize].name,
-                "Sockets"  => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].name,
-                "Timers"   => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].name,
+                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize],
+                "Sockets"  => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize],
+                "Timers"   => &timers[timers_list.get_selected_row().unwrap().get_index() as usize],
                 _          => unreachable!()
             };
-            update_journal(&unit_journal, &unit);
+            update_journal(&unit_journal, &unit.name);
             gtk::Continue(true)
         });
     }
@@ -543,47 +539,6 @@ pub fn launch() {
                     }
                 },
                 Err(message) => println!("Unable to open file: {:?}", message)
-            }
-        });
-    }
-
-    { // NOTE: Journal Refresh Button
-        let services       = services.clone();
-        let services_list  = services_list.clone();
-        let sockets        = sockets.clone();
-        let sockets_list   = sockets_list.clone();
-        let timers         = timers.clone();
-        let timers_list    = timers_list.clone();
-        let unit_stack     = unit_stack.clone();
-        let refresh_button = refresh_log_button.clone();
-        let unit_journal   = unit_journal.clone();
-        refresh_button.connect_clicked(move |_| {
-            match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => {
-                    let index   = match services_list.get_selected_row() {
-                        Some(row) => row.get_index(),
-                        None      => 0
-                    };
-                    let service = &services[index as usize];
-                    update_journal(&unit_journal, service.name.as_str());
-                },
-                "Sockets" => {
-                    let index   = match sockets_list.get_selected_row() {
-                        Some(row) => row.get_index(),
-                        None      => 0
-                    };
-                    let socket = &sockets[index as usize];
-                    update_journal(&unit_journal, socket.name.as_str());
-                },
-                "Timers" => {
-                    let index   = match timers_list.get_selected_row() {
-                        Some(row) => row.get_index(),
-                        None      => 0
-                    };
-                    let timer = &timers[index as usize];
-                    update_journal(&unit_journal, timer.name.as_str());
-                },
-                _ => unreachable!()
             }
         });
     }
