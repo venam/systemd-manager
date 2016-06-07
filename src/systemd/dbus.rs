@@ -130,7 +130,7 @@ pub fn list_unit_files() -> Vec<SystemdUnit> {
 /// disabled.
 pub fn collect_togglable_services(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Service && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.starts_with("/etc/") && !x.path.ends_with("@.service")).cloned().collect()
+        x.state == UnitState::Disabled) && !x.path.ends_with("@.service")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing sockets which can be enabled and
