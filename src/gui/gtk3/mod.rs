@@ -91,12 +91,17 @@ fn update_journal(journal: &gtk::TextView, unit: &SystemdUnit) {
     journal.get_buffer().unwrap().set_text(unit.get_journal().as_str());
 }
 
-/// Obtains the currently-selected unit and it's associated icon
-fn get_current_unit<'a>(units: &'a [SystemdUnit], units_box: &gtk::ListBox, icons: &'a [gtk::Image]) -> (&'a SystemdUnit, &'a gtk::Image) {
-    let index = match units_box.get_selected_row() {
+/// Obtains the index of the currently-selected row, else returns the default of 0.
+fn get_selected_row(list: &gtk::ListBox) -> usize {
+    match list.get_selected_row() {
         Some(row) => row.get_index() as usize,
         None      => 0
-    };
+    }
+}
+
+/// Obtains the currently-selected unit and it's associated icon
+fn get_current_unit<'a>(units: &'a [SystemdUnit], units_box: &gtk::ListBox, icons: &'a [gtk::Image]) -> (&'a SystemdUnit, &'a gtk::Image) {
+    let index = get_selected_row(units_box);
     unsafe { (units.get_unchecked(index), icons.get_unchecked(index)) }
 }
 
@@ -162,25 +167,27 @@ pub fn launch() {
                 stack.set_visible_child_name($unit_type);
                 label.set_text($unit_type);
                 popover.set_visible(false);
-                $list.select_row(Some(&$list.get_row_at_index(0).unwrap()));
-                let unit = &$units[0];
-                let info = unit.get_info();
-                unit_info.get_buffer().unwrap().set_text(info.as_str());
-                ablement_switch.set_active(unit.is_enabled());
-                ablement_switch.set_state(ablement_switch.get_active());
-                match systemd::get_unit_description(&info) {
-                    Some(description) => header.set_label(description),
-                    None              => header.set_label(&unit.name)
-                }
-                if unit.is_active() {
-                    start_button.set_visible(false);
-                    stop_button.set_visible(true);
-                } else {
-                    start_button.set_visible(true);
-                    stop_button.set_visible(false);
-                }
+                if let Some(row) = $list.get_row_at_index(0) {
+                    $list.select_row(Some(&row));
+                    let unit = &$units[0];
+                    let info = unit.get_info();
+                    unit_info.get_buffer().unwrap().set_text(info.as_str());
+                    ablement_switch.set_active(unit.is_enabled());
+                    ablement_switch.set_state(ablement_switch.get_active());
+                    match systemd::get_unit_description(&info) {
+                        Some(description) => header.set_label(description),
+                        None              => header.set_label(&unit.name)
+                    }
+                    if unit.is_active() {
+                        start_button.set_visible(false);
+                        stop_button.set_visible(true);
+                    } else {
+                        start_button.set_visible(true);
+                        stop_button.set_visible(false);
+                    }
 
-                dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str())
+                    dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str());
+                }
             });
         }}
     }
@@ -269,13 +276,15 @@ pub fn launch() {
         let unit_stack    = unit_stack.clone();
         let unit_journal  = unit_journal.clone();
         gtk::timeout_add_seconds(1, move || {
-            let unit = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => unsafe { services.get_unchecked(services_list.get_selected_row().unwrap().get_index() as usize) },
-                "Sockets"  => unsafe { sockets.get_unchecked(sockets_list.get_selected_row().unwrap().get_index() as usize) },
-                "Timers"   => unsafe { timers.get_unchecked(timers_list.get_selected_row().unwrap().get_index() as usize) },
-                _          => unreachable!()
-            };
-            update_journal(&unit_journal, unit);
+            if let Some(child) = unit_stack.get_visible_child_name() {
+                let unit = match child.as_str() {
+                    "Services" => unsafe { services.get_unchecked(get_selected_row(&services_list)) },
+                    "Sockets"  => unsafe { sockets.get_unchecked(get_selected_row(&sockets_list)) },
+                    "Timers"   => unsafe { timers.get_unchecked(get_selected_row(&timers_list)) },
+                    _          => unreachable!()
+                };
+                update_journal(&unit_journal, unit);
+            }
             gtk::Continue(true)
         });
     }
@@ -326,30 +335,32 @@ pub fn launch() {
         let timers_icons_enabled   = timers_icons_enabled.clone();
         let unit_stack             = unit_stack.clone();
         ablement_switch.connect_state_set(move |switch, enabled| {
-            let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => get_current_unit(&services, &services_list, &services_icons_enabled),
-                "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_enabled),
-                "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_enabled),
-                _          => unreachable!()
-            };
-            if enabled && !unit.is_enabled() {
-                match unit.enable() {
-                    Ok(message)  => {
-                        println!("{}", message);
-                        update_icon(icon, true);
-                    },
-                    Err(message) => println!("{}", message)
+            if let Some(child) = unit_stack.get_visible_child_name() {
+                let (unit, icon) = match child.as_str() {
+                    "Services" => get_current_unit(&services, &services_list, &services_icons_enabled),
+                    "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_enabled),
+                    "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_enabled),
+                    _          => unreachable!()
+                };
+                if enabled && !unit.is_enabled() {
+                    match unit.enable() {
+                        Ok(message)  => {
+                            println!("{}", message);
+                            update_icon(icon, true);
+                        },
+                        Err(message) => println!("{}", message)
+                    }
+                    switch.set_state(true);
+                } else if !enabled && unit.is_enabled() {
+                    match unit.disable() {
+                        Ok(message)  => {
+                            println!("{}", message);
+                            update_icon(icon, false);
+                        },
+                        Err(message) => println!("{}", message)
+                    }
+                    switch.set_state(false);
                 }
-                switch.set_state(true);
-            } else if !enabled && unit.is_enabled() {
-                match unit.disable() {
-                    Ok(message)  => {
-                        println!("{}", message);
-                        update_icon(icon, false);
-                    },
-                    Err(message) => println!("{}", message)
-                }
-                switch.set_state(false);
             }
             gtk::Inhibit(true)
         });
@@ -369,21 +380,24 @@ pub fn launch() {
         let start_button          = start_button.clone();
         let stop_button           = stop_button.clone();
         start_button.connect_clicked(move |button| {
-            let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => get_current_unit(&services, &services_list, &services_icons_active),
-                "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
-                "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
-                _ => unreachable!()
-            };
-            match unit.start() {
-                Ok(message) => {
-                   println!("{}", message);
-                   update_icon(icon, true);
-                   button.set_visible(false);
-                   stop_button.set_visible(true);
-               },
-               Err(message) => println!("{}", message)
+            if let Some(child) = unit_stack.get_visible_child_name() {
+                let (unit, icon) = match child.as_str() {
+                    "Services" => get_current_unit(&services, &services_list, &services_icons_active),
+                    "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
+                    "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
+                    _ => unreachable!()
+                };
+                match unit.start() {
+                    Ok(message) => {
+                       println!("{}", message);
+                       update_icon(icon, true);
+                       button.set_visible(false);
+                       stop_button.set_visible(true);
+                   },
+                   Err(message) => println!("{}", message)
+                }
             }
+
         });
     }
 
@@ -401,20 +415,22 @@ pub fn launch() {
         let start_button          = start_button.clone();
         let stop_button           = stop_button.clone();
         stop_button.connect_clicked(move |button| {
-            let (unit, icon) = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => get_current_unit(&services, &services_list, &services_icons_active),
-                "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
-                "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
-                _ => unreachable!()
-            };
-            match unit.stop() {
-                Ok(message) => {
-                    println!("{}", message);
-                    update_icon(icon, false);
-                    button.set_visible(false);
-                    start_button.set_visible(true);
-                },
-                Err(message) => println!("{}", message)
+            if let Some(child) = unit_stack.get_visible_child_name() {
+                let (unit, icon) = match child.as_str() {
+                    "Services" => get_current_unit(&services, &services_list, &services_icons_active),
+                    "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
+                    "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
+                    _ => unreachable!()
+                };
+                match unit.stop() {
+                    Ok(message) => {
+                        println!("{}", message);
+                        update_icon(icon, false);
+                        button.set_visible(false);
+                        start_button.set_visible(true);
+                    },
+                    Err(message) => println!("{}", message)
+                }
             }
         });
     }
@@ -433,19 +449,21 @@ pub fn launch() {
             let start  = buffer.get_start_iter();
             let end    = buffer.get_end_iter();
             let text   = buffer.get_text(&start, &end, true).unwrap();
-            let path = match unit_stack.get_visible_child_name().unwrap().as_str() {
-                "Services" => &services[services_list.get_selected_row().unwrap().get_index() as usize].path,
-                "Sockets"  => &sockets[sockets_list.get_selected_row().unwrap().get_index() as usize].path,
-                "Timers"   => &timers[timers_list.get_selected_row().unwrap().get_index() as usize].path,
-                _          => unreachable!()
-            };
-            match fs::OpenOptions::new().write(true).open(&path) {
-                Ok(mut file) => {
-                    if let Err(message) = file.write(text.as_bytes()) {
-                        println!("Unable to write to file: {:?}", message);
-                    }
-                },
-                Err(message) => println!("Unable to open file: {:?}", message)
+            if let Some(child) = unit_stack.get_visible_child_name() {
+                let unit = match child.as_str() {
+                    "Services" => unsafe { services.get_unchecked(get_selected_row(&services_list)) },
+                    "Sockets"  => unsafe { sockets.get_unchecked(get_selected_row(&sockets_list)) },
+                    "Timers"   => unsafe { timers.get_unchecked(get_selected_row(&timers_list)) },
+                    _          => unreachable!()
+                };
+                match fs::OpenOptions::new().write(true).open(&unit.path) {
+                    Ok(mut file) => {
+                        if let Err(message) = file.write(text.as_bytes()) {
+                            println!("Unable to write to file: {:?}", message);
+                        }
+                    },
+                    Err(message) => println!("Unable to open file: {:?}", message)
+                }
             }
         });
     }

@@ -34,10 +34,10 @@ pub trait Dbus {
 impl Dbus for SystemdUnit {
     /// Returns the current enablement status of the unit
     fn is_enabled(&self) -> bool {
-        for unit in list_unit_files() {
-            if &unit.path == &self.path { return unit.state == UnitState::Enabled; }
+        match list_unit_files().iter().find(|unit| &unit.path == &self.path) {
+            Some(unit) => unit.state == UnitState::Enabled,
+            None       => false
         }
-        false
     }
 
     /// Takes the unit pathname of a service and enables it via dbus.
