@@ -118,7 +118,7 @@ pub fn list_unit_files() -> Vec<SystemdUnit> {
             systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype});
         }
 
-        quickersort::sort_by(&mut systemd_units[..], &|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+        quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         systemd_units
     }
 
