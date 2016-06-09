@@ -51,44 +51,46 @@ fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut 
 
 /// Use `systemd-analyze blame` to fill out the information for the Analyze `gtk::Stack`.
 fn setup_systemd_analyze(builder: &gtk::Builder) {
-    let analyze_tree: gtk::TreeView = builder.get_object("analyze_tree").unwrap();
-    let analyze_store = gtk::ListStore::new(&[gtk::Type::U32, gtk::Type::String]);
+    if let Some(units) = Analyze::blame() {
+        let analyze_tree: gtk::TreeView = builder.get_object("analyze_tree").unwrap();
+        let analyze_store = gtk::ListStore::new(&[gtk::Type::U32, gtk::Type::String]);
 
-    // A simple macro for adding a column to the preview tree.
-    macro_rules! add_column {
-        ($preview_tree:ident, $title:expr, $id:expr) => {{
-            let column   = gtk::TreeViewColumn::new();
-            let renderer = gtk::CellRendererText::new();
-            column.set_title($title);
-            column.set_resizable(true);
-            column.pack_start(&renderer, true);
-            column.add_attribute(&renderer, "text", $id);
-            analyze_tree.append_column(&column);
-        }}
+        // A simple macro for adding a column to the preview tree.
+        macro_rules! add_column {
+            ($preview_tree:ident, $title:expr, $id:expr) => {{
+                let column   = gtk::TreeViewColumn::new();
+                let renderer = gtk::CellRendererText::new();
+                column.set_title($title);
+                column.set_resizable(true);
+                column.pack_start(&renderer, true);
+                column.add_attribute(&renderer, "text", $id);
+                analyze_tree.append_column(&column);
+            }}
+        }
+
+        add_column!(analyze_store, "Time (ms)", 0);
+        add_column!(analyze_store, "Unit", 1);
+
+
+        for value in units.clone() {
+            analyze_store.insert_with_values(None, &[0, 1], &[&value.time, &value.service]);
+        }
+
+        analyze_tree.set_model(Some(&analyze_store));
+
+        let kernel_time:    gtk::Label = builder.get_object("kernel_time_label").unwrap();
+        let userspace_time: gtk::Label = builder.get_object("userspace_time_label").unwrap();
+        let total_time:     gtk::Label = builder.get_object("total_time_label").unwrap();
+        let times                      = Analyze::time();
+        kernel_time.set_label(times.0.as_str());
+        userspace_time.set_label(times.1.as_str());
+        total_time.set_label(times.2.as_str());
     }
-
-    add_column!(analyze_store, "Time (ms)", 0);
-    add_column!(analyze_store, "Unit", 1);
-
-    let units = Analyze::blame();
-    for value in units.clone() {
-        analyze_store.insert_with_values(None, &[0, 1], &[&value.time, &value.service]);
-    }
-
-    analyze_tree.set_model(Some(&analyze_store));
-
-    let kernel_time:    gtk::Label = builder.get_object("kernel_time_label").unwrap();
-    let userspace_time: gtk::Label = builder.get_object("userspace_time_label").unwrap();
-    let total_time:     gtk::Label = builder.get_object("total_time_label").unwrap();
-    let times                      = Analyze::time();
-    kernel_time.set_label(times.0.as_str());
-    userspace_time.set_label(times.1.as_str());
-    total_time.set_label(times.2.as_str());
 }
 
 /// Updates the associated journal `TextView` with the contents of the unit's journal log.
 fn update_journal(journal: &gtk::TextView, unit: &SystemdUnit) {
-    journal.get_buffer().unwrap().set_text(unit.get_journal().as_str());
+    journal.get_buffer().map(|buffer| buffer.set_text(unit.get_journal().as_str()));
 }
 
 /// Obtains the index of the currently-selected row, else returns the default of 0.
@@ -171,7 +173,7 @@ pub fn launch() {
                     $list.select_row(Some(&row));
                     let unit = &$units[0];
                     let info = unit.get_info();
-                    unit_info.get_buffer().unwrap().set_text(info.as_str());
+                    unit_info.get_buffer().map(|buffer| buffer.set_text(info.as_str()));
                     ablement_switch.set_active(unit.is_enabled());
                     ablement_switch.set_state(ablement_switch.get_active());
                     match systemd::get_unit_description(&info) {
@@ -186,7 +188,7 @@ pub fn launch() {
                         stop_button.set_visible(false);
                     }
 
-                    dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str());
+                    dependencies.get_buffer().map(|buffer| buffer.set_text(unit.list_dependencies().as_str()));
                 }
             });
         }}
@@ -220,7 +222,7 @@ pub fn launch() {
                     let unit        = &$units[row.get_index() as usize];
                     update_journal(&unit_journal, &unit);
                     let description = unit.get_info();
-                    unit_info.get_buffer().unwrap().set_text(description.as_str());
+                    unit_info.get_buffer().map(|buffer| buffer.set_text(description.as_str()));
                     ablement_switch.set_active(unit.is_enabled());
                     ablement_switch.set_state(ablement_switch.get_active());
                     header.set_label(unit.name.as_str());
@@ -236,7 +238,7 @@ pub fn launch() {
                         stop_button.set_visible(false);
                     }
 
-                    dependencies.get_buffer().unwrap().set_text(unit.list_dependencies().as_str());
+                    dependencies.get_buffer().map(|buffer| buffer.set_text(unit.list_dependencies().as_str()));
                 }
             });
         }}
@@ -445,24 +447,22 @@ pub fn launch() {
         let timers_list   = timers_list.clone();
         let unit_stack    = unit_stack.clone();
         save_unit_file.connect_clicked(move |_| {
-            let buffer = unit_info.get_buffer().unwrap();
-            let start  = buffer.get_start_iter();
-            let end    = buffer.get_end_iter();
-            let text   = buffer.get_text(&start, &end, true).unwrap();
-            if let Some(child) = unit_stack.get_visible_child_name() {
-                let unit = match child.as_str() {
-                    "Services" => unsafe { services.get_unchecked(get_selected_row(&services_list)) },
-                    "Sockets"  => unsafe { sockets.get_unchecked(get_selected_row(&sockets_list)) },
-                    "Timers"   => unsafe { timers.get_unchecked(get_selected_row(&timers_list)) },
-                    _          => unreachable!()
-                };
-                match fs::OpenOptions::new().write(true).open(&unit.path) {
-                    Ok(mut file) => {
-                        if let Err(message) = file.write(text.as_bytes()) {
-                            println!("Unable to write to file: {:?}", message);
+            if let Some(buffer) = unit_info.get_buffer() {
+                let start  = buffer.get_start_iter();
+                let end    = buffer.get_end_iter();
+                if let Some(text) = buffer.get_text(&start, &end, true) {
+                    if let Some(child) = unit_stack.get_visible_child_name() {
+                        let unit = match child.as_str() {
+                            "Services" => unsafe { services.get_unchecked(get_selected_row(&services_list)) },
+                            "Sockets"  => unsafe { sockets.get_unchecked(get_selected_row(&sockets_list)) },
+                            "Timers"   => unsafe { timers.get_unchecked(get_selected_row(&timers_list)) },
+                            _          => unreachable!()
+                        };
+                        if let Err(message) = fs::OpenOptions::new().write(true).open(&unit.path)
+                                .map(|mut file| file.write(text.as_bytes())) {
+                            println!("systemd-manager: unable to save unit file: {}", message.to_string());
                         }
-                    },
-                    Err(message) => println!("Unable to open file: {:?}", message)
+                    }
                 }
             }
         });

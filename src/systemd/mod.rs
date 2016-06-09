@@ -18,25 +18,16 @@ pub struct SystemdUnit {
 impl SystemdUnit {
     /// Read the unit file and return it's contents so that we can display it in the `gtk::TextView`.
     pub fn get_info(&self) -> String {
-        match File::open(&self.path) {
-            Ok(mut file) => {
-                let mut output = String::new();
-                if let Err(_) = file.read_to_string(&mut output) {
-                    String::from("Unable to Read Unit File")
-                } else {
-                    output
-                }
-            },
-            Err(_) => String::from("Unable to Open Unit File")
-        }   
+        File::open(&self.path).map(|mut file| {
+            let mut output = String::with_capacity(file.metadata().map(|x| x.len()).unwrap_or(0) as usize);
+            file.read_to_string(&mut output).map(|_| output).ok().unwrap_or_default()
+        }).ok().unwrap_or_default()
     }
-    
+
     /// Obtains the journal log for the given unit.
     pub fn get_journal(&self) -> String {
-        match Command::new("journalctl").arg("-b").arg("-r").arg("-u").arg(&self.name).output() {
-            Ok(output) => String::from_utf8(output.stdout).unwrap_or_else(|_| String::from("")),
-            Err(_)     => String::from("")
-        }
+        Command::new("journalctl").arg("-b").arg("-r").arg("-u").arg(&self.name).output().ok()
+            .and_then(|output| String::from_utf8(output.stdout).ok()).unwrap_or_default()
     }
 }
 
@@ -85,8 +76,5 @@ impl UnitState {
 
 /// Obtain the description from the unit file and return it.
 pub fn get_unit_description(info: &str) -> Option<&str> {
-    match info.lines().find(|x| x.starts_with("Description=")) {
-        Some(description) => Some(description.split_at(12).1),
-        None => None
-    }
+    info.lines().find(|x| x.starts_with("Description=")).map(|description| description.split_at(12).1)
 }

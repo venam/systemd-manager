@@ -34,10 +34,8 @@ pub trait Dbus {
 impl Dbus for SystemdUnit {
     /// Returns the current enablement status of the unit
     fn is_enabled(&self) -> bool {
-        match list_unit_files().iter().find(|unit| &unit.path == &self.path) {
-            Some(unit) => unit.state == UnitState::Enabled,
-            None       => false
-        }
+        list_unit_files().iter().find(|unit| &unit.path == &self.path)
+            .map_or(false, |unit| unit.state == UnitState::Enabled)
     }
 
     /// Takes the unit pathname of a service and enables it via dbus.
@@ -78,20 +76,18 @@ impl Dbus for SystemdUnit {
     fn start(&self) -> Result<String, String> {
         let mut message = dbus_message!("StartUnit");
         message.append_items(&[self.name.as_str().into(), "fail".into()]);
-        match dbus_connect!(message) {
-            Ok(_) => Ok(format!("{} successfully started", self.name)),
-            Err(error) => Err(format!("{} failed to start:\n{:?}", self.name, error))
-        }
+        dbus_connect!(message)
+            .map_err(|err| format!("{} failed to start:\n{}", self.name, err.to_string()))
+            .map(|_| format!("{} successfully started", self.name))
     }
 
     /// Takes a unit name as input and attempts to stop it.
     fn stop(&self) -> Result<String, String> {
         let mut message = dbus_message!("StopUnit");
         message.append_items(&[self.name.as_str().into(), "fail".into()]);
-        match dbus_connect!(message) {
-            Ok(_) => Ok(format!("{} successfully stopped", self.name)),
-            Err(error) => Err(format!("{} failed to stop:\n{:?}", self.name, error))
-        }
+        dbus_connect!(message)
+            .map_err(|err| format!("{} failed to stop:\n{}", self.name, err.to_string()))
+            .map(|_| format!("{} successfully stopped", self.name))
     }
 }
 
@@ -122,7 +118,8 @@ pub fn list_unit_files() -> Vec<SystemdUnit> {
         systemd_units
     }
 
-    let message = dbus_connect!(dbus_message!("ListUnitFiles")).unwrap().get_items();
+    let message = dbus_connect!(dbus_message!("ListUnitFiles"))
+        .expect("systemd-manager: unable to get dbus message from systemd").get_items();
     parse_message(&format!("{:?}", message))
 }
 
