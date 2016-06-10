@@ -18,16 +18,26 @@ pub struct SystemdUnit {
 impl SystemdUnit {
     /// Read the unit file and return it's contents so that we can display it in the `gtk::TextView`.
     pub fn get_info(&self) -> String {
-        File::open(&self.path).map(|mut file| {
-            let mut output = String::with_capacity(file.metadata().map(|x| x.len()).unwrap_or(0) as usize);
-            file.read_to_string(&mut output).map(|_| output).ok().unwrap_or_default()
-        }).ok().unwrap_or_default()
+        File::open(&self.path)
+            .map(|mut file| {
+                // Obtain the capacity to create the string with based on the file's metadata.
+                let capacity = file.metadata().map(|x| x.len()).unwrap_or(0) as usize;
+                // Create a `String` to store the contents of the file.
+                let mut output = String::with_capacity(capacity);
+                // Attempt to read the file to the `String`, or return an empty `String` if it fails.
+                file.read_to_string(&mut output).map(|_| output).ok().unwrap_or_default()
+            })
+            // Return a `String` of the file contents if the file was read successfully, else return an empty `String`.
+            .ok().unwrap_or_default()
     }
 
     /// Obtains the journal log for the given unit.
     pub fn get_journal(&self) -> String {
         Command::new("journalctl").arg("-b").arg("-r").arg("-u").arg(&self.name).output().ok()
-            .and_then(|output| String::from_utf8(output.stdout).ok()).unwrap_or_default()
+            // Collect the output of the journal as a `String`
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            // Return the contents of the journal, otherwise return an error message
+            .unwrap_or_else(|| format!("Unable to read the journal entry for {}.", self.name))
     }
 }
 
@@ -76,5 +86,9 @@ impl UnitState {
 
 /// Obtain the description from the unit file and return it.
 pub fn get_unit_description(info: &str) -> Option<&str> {
-    info.lines().find(|x| x.starts_with("Description=")).map(|description| description.split_at(12).1)
+    info.lines()
+        // Find the line that starts with `Description=`.
+        .find(|x| x.starts_with("Description="))
+        // Split the line and return the latter half that contains the description.
+        .map(|description| description.split_at(12).1)
 }

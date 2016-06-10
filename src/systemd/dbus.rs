@@ -34,7 +34,8 @@ pub trait Dbus {
 impl Dbus for SystemdUnit {
     /// Returns the current enablement status of the unit
     fn is_enabled(&self) -> bool {
-        list_unit_files().iter().find(|unit| &unit.path == &self.path)
+        list_unit_files().iter()
+            .find(|unit| &unit.path == &self.path)
             .map_or(false, |unit| unit.state == UnitState::Enabled)
     }
 

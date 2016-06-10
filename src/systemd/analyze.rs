@@ -9,20 +9,26 @@ pub struct Analyze {
 impl Analyze {
     /// Returns the results of `systemd-analyze blame` as a vector of `Analyze` units
     pub fn blame() -> Option<Vec<Analyze>> {
-        Command::new("systemd-analyze").arg("blame").output().map(|output| String::from_utf8(output.stdout).ok())
-            .unwrap_or(None).and_then(|stdout| map_blames(stdout.as_str()))
+        Command::new("systemd-analyze").arg("blame").output().ok()
+            // Collect the standard output of the command as a `string`.
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            // Collect a list of units and their times
+            .and_then(|stdout| map_blames(stdout.as_str()))
     }
 
     /// Returns the results of `systemd-analyze time` as three `String` values (`kernel`, `userspace`, `total`)
     pub fn time() -> (String, String, String) {
-        Command::new("systemd-analyze").arg("time").output().map(|output| String::from_utf8(output.stdout).ok())
-            .unwrap_or(None).map_or(("N/A".to_owned(), "N/A".to_owned(), "N/A".to_owned()), |stdout| {
-                map_times(stdout.as_str())
-            })
+        Command::new("systemd-analyze").arg("time").output().ok()
+            // Collect the standard output of the command as a `string`.
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            // Collect the values for `(kernel, userspace, total)`
+            .map_or(("N/A".to_owned(), "N/A".to_owned(), "N/A".to_owned()), |stdout| { map_times(stdout.as_str()) })
     }
 }
 
 /// Take the stdout of `systemd-analyze blame` and map the values to a vector of Analyze units.
+/// The standard output will have the lines reversed, with the key information selected from each line.
+/// If there is an error, `None` will be returned, otherwise `Some(output)` will be returned.
 fn map_blames(stdout: &str) -> Option<Vec<Analyze>> {
     let mut output: Vec<Analyze> = Vec::new();
     for item in stdout.lines().rev() {
@@ -35,6 +41,8 @@ fn map_blames(stdout: &str) -> Option<Vec<Analyze>> {
 }
 
 /// Take the stdout of `systemd-analyze time` and map the values in the string.
+/// A whitespace-delimited iterator will be created from the standard output and select fields from that
+/// iterator will be collected.
 fn map_times(stdout: &str) -> (String, String, String) {
     let mut stdout = stdout.split_whitespace();
     let kernel     = String::from(stdout.nth(3).unwrap_or("N/A"));
@@ -44,6 +52,8 @@ fn map_times(stdout: &str) -> (String, String, String) {
 }
 
 /// Parses the stdout of an individual line of the `systemd-analyze blame` command and returns it as an `Analyze` unit.
+/// Each line is whitespace-delimited, whereby the last field is the name of the service and all fields before are
+/// units of measurement, such as '7s 320ms'. The time will be collected and calculated in milliseconds.
 fn parse_blame(x: &str) -> Option<Analyze> {
     let mut values: Vec<&str> = x.trim().split_whitespace().collect();
     values.pop().map(|service| {

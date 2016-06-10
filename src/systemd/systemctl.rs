@@ -2,23 +2,33 @@ use std::process::Command;
 use super::SystemdUnit;
 
 pub trait Systemctl {
+    /// Runs the `systemctl status` command and receives it's stdout to determin the active status of the unit.
     fn is_active(&self) -> bool;
+
+    /// Runs `systemctl list-dependencies` to obtain a list of dependencies for the given unit.
     fn list_dependencies(&self) -> String;
 }
 
 impl Systemctl for SystemdUnit {
-    /// Runs the `systemctl status` command and receives it's stdout to determin the active status of the unit.
     fn is_active(&self) -> bool {
         Command::new("systemctl").arg("status").arg(&self.name).output().ok()
+            // Collect the command's standard output as a `String`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
+            // Determine whether the state of the input is active or not.
             .map_or(false, |stdout| parse_state(stdout.as_str()))
     }
 
     fn list_dependencies(&self) -> String {
         Command::new("systemctl").arg("list-dependencies").arg(&self.name).output().ok()
+            // Collect the command's standard output as a `String`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
+            // Collect a list of dependencies as a `String`, else return the unit's name.
             .map_or(self.name.clone(), |stdout| {
-                stdout.lines().skip(1).map(|x| x.chars().skip(4).collect::<String>())
+                // Skip the first line of the output
+                stdout.lines().skip(1)
+                    // Skip the first four characters of each line
+                    .map(|x| x.chars().skip(4).collect::<String>())
+                    // Fold each line into a single `String`.
                     .fold(String::new(), |acc, x| acc + x.as_str() + "\n")
             })
     }
@@ -26,9 +36,15 @@ impl Systemctl for SystemdUnit {
 
 /// Parses the stdout of `systemctl status` to determine if the unit is active (true) or inactive (false).
 fn parse_state(status: &str) -> bool {
-    status.lines().nth(2).map_or_else(|| false, |active_line| {
-        active_line.trim().split_at(8).1.chars().next().map_or(false, |value| value == 'a')
-    })
+    // The second line contains information pertaining to the state.
+    status.lines().nth(2)
+        // Determines whether the unit is status is active or inactive.
+        .map_or_else(|| false, |active_line| {
+            // Collect the first letter from the status parameter which is either '[a]ctive' or '[i]nactive'
+            active_line.trim().split_at(8).1.chars().next()
+                // If the character is `a` then the status is `[a]ctive`.
+                .map_or(false, |value| value == 'a')
+        })
 }
 
 #[test]
