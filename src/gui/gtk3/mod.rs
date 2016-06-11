@@ -249,9 +249,9 @@ pub fn launch() {
 
     // Initialize all of the services, sockets, timers and their respective signals.
     let unit_files                 = dbus::list_unit_files();
-    let services                   = dbus::collect_togglable_services(&unit_files);
-    let sockets                    = dbus::collect_togglable_sockets(&unit_files);
-    let timers                     = dbus::collect_togglable_timers(&unit_files);
+    let services                   = systemd::collect_togglable_services(&unit_files);
+    let sockets                    = systemd::collect_togglable_sockets(&unit_files);
+    let timers                     = systemd::collect_togglable_timers(&unit_files);
     let mut services_icons_active  = Vec::new();
     let mut services_icons_enabled = Vec::new();
     let mut sockets_icons_active   = Vec::new();

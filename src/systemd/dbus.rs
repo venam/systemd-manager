@@ -127,24 +127,3 @@ fn parse_message(input: &str) -> Vec<SystemdUnit> {
     quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     systemd_units
 }
-
-/// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing services which can be enabled and
-/// disabled, which are also not templates.
-pub fn collect_togglable_services(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
-    units.iter().filter(|x| x.utype == UnitType::Service && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.ends_with("@.service")).cloned().collect()
-}
-
-/// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing sockets which can be enabled and
-/// disabled, which are also not templates.
-pub fn collect_togglable_sockets(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
-    units.iter().filter(|x| x.utype == UnitType::Socket && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.ends_with("@.socket")).cloned().collect()
-}
-
-/// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing timers which can be enabled and
-/// disabled, which are also not templates.
-pub fn collect_togglable_timers(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
-    units.iter().filter(|x| x.utype == UnitType::Timer && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.ends_with("@.timer")).cloned().collect()
-}

@@ -19,7 +19,7 @@ impl SystemdUnit {
     /// Read the unit file and return it's contents so that we can display it in the `gtk::TextView`.
     pub fn get_info(&self) -> String {
         File::open(&self.path).ok()
-            // Map the contained file and return a `String` containing the file contents, else return an empty `String`.
+            // Take the contained file and return a `String` of the file contents, else return an empty `String`.
             .map_or(String::new(), |mut file| {
                 // Obtain the capacity to create the string with based on the file's metadata.
                 let capacity = file.metadata().map(|x| x.len()).unwrap_or(0) as usize;
@@ -90,4 +90,25 @@ pub fn get_unit_description(info: &str) -> Option<&str> {
         .find(|x| x.starts_with("Description="))
         // Split the line and return the latter half that contains the description.
         .map(|description| description.split_at(12).1)
+}
+
+/// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing services which can be enabled and
+/// disabled, which are also not templates.
+pub fn collect_togglable_services(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
+    units.iter().filter(|x| x.utype == UnitType::Service && (x.state == UnitState::Enabled ||
+        x.state == UnitState::Disabled) && !x.path.ends_with("@.service")).cloned().collect()
+}
+
+/// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing sockets which can be enabled and
+/// disabled, which are also not templates.
+pub fn collect_togglable_sockets(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
+    units.iter().filter(|x| x.utype == UnitType::Socket && (x.state == UnitState::Enabled ||
+        x.state == UnitState::Disabled) && !x.path.ends_with("@.socket")).cloned().collect()
+}
+
+/// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing timers which can be enabled and
+/// disabled, which are also not templates.
+pub fn collect_togglable_timers(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
+    units.iter().filter(|x| x.utype == UnitType::Timer && (x.state == UnitState::Enabled ||
+        x.state == UnitState::Disabled) && !x.path.ends_with("@.timer")).cloned().collect()
 }
