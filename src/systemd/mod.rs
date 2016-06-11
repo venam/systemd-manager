@@ -18,8 +18,9 @@ pub struct SystemdUnit {
 impl SystemdUnit {
     /// Read the unit file and return it's contents so that we can display it in the `gtk::TextView`.
     pub fn get_info(&self) -> String {
-        File::open(&self.path)
-            .map(|mut file| {
+        File::open(&self.path).ok()
+            // Map the contained file and return a `String` containing the file contents, else return an empty `String`.
+            .map_or(String::new(), |mut file| {
                 // Obtain the capacity to create the string with based on the file's metadata.
                 let capacity = file.metadata().map(|x| x.len()).unwrap_or(0) as usize;
                 // Create a `String` to store the contents of the file.
@@ -27,8 +28,6 @@ impl SystemdUnit {
                 // Attempt to read the file to the `String`, or return an empty `String` if it fails.
                 file.read_to_string(&mut output).map(|_| output).ok().unwrap_or_default()
             })
-            // Return a `String` of the file contents if the file was read successfully, else return an empty `String`.
-            .ok().unwrap_or_default()
     }
 
     /// Obtains the journal log for the given unit.

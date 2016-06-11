@@ -10,16 +10,16 @@ impl Analyze {
     /// Returns the results of `systemd-analyze blame` as a vector of `Analyze` units
     pub fn blame() -> Option<Vec<Analyze>> {
         Command::new("systemd-analyze").arg("blame").output().ok()
-            // Collect the standard output of the command as a `string`.
+            // Collect the standard output of the command as a `string` and pass it as an `Option`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
-            // Collect a list of units and their times
+            // Return a list of units and their times as an `Option`.
             .and_then(|stdout| map_blames(stdout.as_str()))
     }
 
     /// Returns the results of `systemd-analyze time` as three `String` values (`kernel`, `userspace`, `total`)
     pub fn time() -> (String, String, String) {
         Command::new("systemd-analyze").arg("time").output().ok()
-            // Collect the standard output of the command as a `string`.
+            // Collect the standard output of the command as a `string` and pass it as an `Option`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
             // Collect the values for `(kernel, userspace, total)`
             .map_or(("N/A".to_owned(), "N/A".to_owned(), "N/A".to_owned()), |stdout| { map_times(stdout.as_str()) })
@@ -40,14 +40,20 @@ fn map_blames(stdout: &str) -> Option<Vec<Analyze>> {
     Some(output)
 }
 
-/// Take the stdout of `systemd-analyze time` and map the values in the string.
-/// A whitespace-delimited iterator will be created from the standard output and select fields from that
-/// iterator will be collected.
+/// Take the stdout of `systemd-analyze time` and map the values in the string. A whitespace-delimited iterator
+/// will be created from the standard output and select fields from that iterator will be collected.
+///
+/// > Example Output: "Startup finished in 7.621s (kernel) + 23.949s (userspace) = 31.571s"
 fn map_times(stdout: &str) -> (String, String, String) {
+    // Split the standard output by words
     let mut stdout = stdout.split_whitespace();
+    // The kernel time is the fourth word in the output.
     let kernel     = String::from(stdout.nth(3).unwrap_or("N/A"));
+    // The userspace time is the third word after the kernel time.
     let userspace  = String::from(stdout.nth(2).unwrap_or("N/A"));
+    // The total time is the third word after the userspace time.
     let total      = String::from(stdout.nth(2).unwrap_or("N/A"));
+    // Return the results as a tuple
     (kernel, userspace, total)
 }
 
@@ -55,9 +61,13 @@ fn map_times(stdout: &str) -> (String, String, String) {
 /// Each line is whitespace-delimited, whereby the last field is the name of the service and all fields before are
 /// units of measurement, such as '7s 320ms'. The time will be collected and calculated in milliseconds.
 fn parse_blame(x: &str) -> Option<Analyze> {
+    // Collects the line as a vector of words
     let mut values: Vec<&str> = x.trim().split_whitespace().collect();
+    // Remove the last value from the vector and use it as the service name.
     values.pop().map(|service| {
+        // Sum all of the values remaining in the vector into a single `time` value.
         let time = values.iter().fold(0u32, |acc, x| acc + parse_time(x));
+        // Return a new `Analyze` unit containing the `time` and `service` name.
         Analyze { time: time, service: String::from(service) }
     })
 

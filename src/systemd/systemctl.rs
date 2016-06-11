@@ -12,7 +12,7 @@ pub trait Systemctl {
 impl Systemctl for SystemdUnit {
     fn is_active(&self) -> bool {
         Command::new("systemctl").arg("status").arg(&self.name).output().ok()
-            // Collect the command's standard output as a `String`.
+            // Collect the command's standard output as a `String` and return it as an `Option`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
             // Determine whether the state of the input is active or not.
             .map_or(false, |stdout| parse_state(stdout.as_str()))
@@ -20,7 +20,7 @@ impl Systemctl for SystemdUnit {
 
     fn list_dependencies(&self) -> String {
         Command::new("systemctl").arg("list-dependencies").arg(&self.name).output().ok()
-            // Collect the command's standard output as a `String`.
+            // Collect the command's standard output as a `String` and return it as an `Option`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
             // Collect a list of dependencies as a `String`, else return the unit's name.
             .map_or(self.name.clone(), |stdout| {

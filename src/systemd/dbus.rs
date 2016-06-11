@@ -32,10 +32,12 @@ pub trait Dbus {
 
 
 impl Dbus for SystemdUnit {
-    /// Returns the current enablement status of the unit
+    /// Returns the current enablement status of the unit.
     fn is_enabled(&self) -> bool {
         list_unit_files().iter()
+            // Find the specific unit that we waant to obtain the status from
             .find(|unit| &unit.path == &self.path)
+            // Map the contained value of that unit and return true if the `UnitState` is `Enabled`.
             .map_or(false, |unit| unit.state == UnitState::Enabled)
     }
 
@@ -94,52 +96,54 @@ impl Dbus for SystemdUnit {
 
 /// Communicates with dbus to obtain a list of unit files and returns them as a `Vec<SystemdUnit>`.
 pub fn list_unit_files() -> Vec<SystemdUnit> {
-    /// Takes the dbus message as input and maps the information to a `Vec<SystemdUnit>`.
-    fn parse_message(input: &str) -> Vec<SystemdUnit> {
-        let message = {
-            let mut output: String = input.chars().skip(7).collect();
-            let len = output.len()-10;
-            output.truncate(len);
-            output
-        };
-
-        // This custom loop iterates across two variables at a time. The first variable contains the
-        // pathname of the unit, while the second variable contains the state of that unit.
-        let mut systemd_units: Vec<SystemdUnit> = Vec::new();
-        let mut iterator = message.split(',');
-        while let Some(path) = iterator.next() {
-            let path: String = path.chars().skip(14).take_while(|x| *x != '\"').collect();
-            let name: String = String::from(Path::new(&path).file_name().unwrap().to_str().unwrap());
-            let utype = UnitType::new(&path);
-            let state = UnitState::new(iterator.next().unwrap());
-            systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype});
-        }
-
-        quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-        systemd_units
-    }
-
     let message = dbus_connect!(dbus_message!("ListUnitFiles"))
         .expect("systemd-manager: unable to get dbus message from systemd").get_items();
     parse_message(&format!("{:?}", message))
 }
 
+/// Takes the dbus message as input and maps the information to a `Vec<SystemdUnit>`.
+fn parse_message(input: &str) -> Vec<SystemdUnit> {
+    // The first seven characters and last ten characters must be removed.
+    let message: String = input.chars().skip(7).take(input.chars().count()-17).collect();
+    // Create a systemd_units vector to store the collected systemd units.
+    let mut systemd_units: Vec<SystemdUnit> = Vec::new();
+    // Create an iterator from a comma-separated list of systemd unit variable pairs.
+    let mut iterator = message.split(',');
+    // Loop through each pair of variables pertaining to the current systemd unit.
+    while let (Some(path), Some(state)) = (iterator.next(), iterator.next()) {
+        // Skip the first fourteen characters and take all characters until '"' is found. This is the filepath.
+        let path: String = path.chars().skip(14).take_while(|x| *x != '\"').collect();
+        // Obtain the name of the service by using `std::path::Path` to obtain the file name from the path.
+        let name: String = String::from(Path::new(&path).file_name().unwrap().to_str().unwrap());
+        // The type of the unit is determined based on the extension of the file.
+        let utype = UnitType::new(&path);
+        // The state of the unit can be determined by the first character in the `state`
+        let state = UnitState::new(state);
+        // Push the collected information into the `systemd_units` vector.
+        systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype});
+    }
+
+    // Sort the list of units and then return the list.
+    quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    systemd_units
+}
+
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing services which can be enabled and
-/// disabled.
+/// disabled, which are also not templates.
 pub fn collect_togglable_services(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Service && (x.state == UnitState::Enabled ||
         x.state == UnitState::Disabled) && !x.path.ends_with("@.service")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing sockets which can be enabled and
-/// disabled.
+/// disabled, which are also not templates.
 pub fn collect_togglable_sockets(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Socket && (x.state == UnitState::Enabled ||
         x.state == UnitState::Disabled) && !x.path.ends_with("@.socket")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing timers which can be enabled and
-/// disabled.
+/// disabled, which are also not templates.
 pub fn collect_togglable_timers(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
     units.iter().filter(|x| x.utype == UnitType::Timer && (x.state == UnitState::Enabled ||
         x.state == UnitState::Disabled) && !x.path.ends_with("@.timer")).cloned().collect()
