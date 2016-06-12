@@ -14,6 +14,7 @@ pub fn create_row(row: &mut ListBoxRow, unit: &SystemdUnit, active_icons: &mut V
         icon
     }
 
+    // Create the unit label with the extension removed.
     let unit_label = Label::new(Some(Path::new(&unit.name).file_stem().unwrap().to_str().unwrap()));
     unit_label.set_tooltip_text(systemd::get_unit_description(unit.get_info().as_str()));
 
@@ -37,12 +38,10 @@ pub fn create_row(row: &mut ListBoxRow, unit: &SystemdUnit, active_icons: &mut V
 
 /// Obtains the index of the currently-selected row, else returns the default of 0.
 fn get_selected_row(list: &ListBox) -> usize {
-    match list.get_selected_row() {
-        Some(row) => row.get_index() as usize,
-        None      => 0
-    }
+    list.get_selected_row().map_or(0, |row| row.get_index() as usize)
 }
 
+/// Obtains the currently-selected unit.
 pub fn get_current_unit<'a>(units: &'a [SystemdUnit], list: &ListBox) -> &'a SystemdUnit {
     &units[get_selected_row(list)]
 }
