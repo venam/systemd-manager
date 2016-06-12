@@ -1,110 +1,27 @@
 use std::fs;
 use std::io::Write;
-use std::path::Path;
 
-use systemd::{self, UnitState, SystemdUnit};
+use systemd::{self, SystemdUnit};
 use systemd::systemctl::Systemctl;
 use systemd::dbus::{self, Dbus};
-use systemd::analyze::Analyze;
 
+mod analyze;
 mod button_layout;
+mod units;
 use self::button_layout::ButtonLayout;
 
-use gtk;
+use gtk::{self, Image};
 use gtk::prelude::*;
 use gdk::enums::key;
 
 /// Updates the status icon for the selected unit
-fn update_icon(icon: &gtk::Image, state: bool) {
+fn update_icon(icon: &Image, state: bool) {
     if state { icon.set_from_stock("gtk-yes", 4); } else { icon.set_from_stock("gtk-no", 4); }
-}
-
-/// Create a `gtk::ListboxRow` and add it to the `gtk::ListBox`, and then add the `gtk::Image` to a vector so that we can later modify
-/// it when the state changes.
-fn create_row(row: &mut gtk::ListBoxRow, unit: &SystemdUnit, active_icons: &mut Vec<gtk::Image>, enable_icons: &mut Vec<gtk::Image>) {
-    let unit_label = gtk::Label::new(Some(Path::new(&unit.name).file_stem().unwrap().to_str().unwrap()));
-    unit_label.set_tooltip_text(systemd::get_unit_description(unit.get_info().as_str()));
-
-    let running_state = if unit.is_active() {
-        gtk::Image::new_from_stock("gtk-yes", 4)
-    } else {
-        gtk::Image::new_from_stock("gtk-no", 4)
-    };
-    running_state.set_tooltip_text(Some("Active Status"));
-
-    let enablement_state = if unit.state == UnitState::Enabled {
-        gtk::Image::new_from_stock("gtk-yes", 4)
-    } else {
-        gtk::Image::new_from_stock("gtk-no", 4)
-    };
-    enablement_state.set_tooltip_text(Some("Enablement Status"));
-
-    let unit_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    unit_box.pack_start(&unit_label, false, false, 5);
-    unit_box.pack_end(&running_state, false, false, 0);
-    unit_box.pack_end(&enablement_state, false, false, 0);
-    row.add(&unit_box);
-
-    active_icons.push(running_state);
-    enable_icons.push(enablement_state);
-}
-
-/// Use `systemd-analyze blame` to fill out the information for the Analyze `gtk::Stack`.
-fn setup_systemd_analyze(builder: &gtk::Builder) {
-    if let Some(units) = Analyze::blame() {
-        let analyze_tree: gtk::TreeView = builder.get_object("analyze_tree").unwrap();
-        let analyze_store = gtk::ListStore::new(&[gtk::Type::U32, gtk::Type::String]);
-
-        // A simple macro for adding a column to the preview tree.
-        macro_rules! add_column {
-            ($preview_tree:ident, $title:expr, $id:expr) => {{
-                let column   = gtk::TreeViewColumn::new();
-                let renderer = gtk::CellRendererText::new();
-                column.set_title($title);
-                column.set_resizable(true);
-                column.pack_start(&renderer, true);
-                column.add_attribute(&renderer, "text", $id);
-                analyze_tree.append_column(&column);
-            }}
-        }
-
-        add_column!(analyze_store, "Time (ms)", 0);
-        add_column!(analyze_store, "Unit", 1);
-
-
-        for value in units.clone() {
-            analyze_store.insert_with_values(None, &[0, 1], &[&value.time, &value.service]);
-        }
-
-        analyze_tree.set_model(Some(&analyze_store));
-
-        let kernel_time:    gtk::Label = builder.get_object("kernel_time_label").unwrap();
-        let userspace_time: gtk::Label = builder.get_object("userspace_time_label").unwrap();
-        let total_time:     gtk::Label = builder.get_object("total_time_label").unwrap();
-        let times                      = Analyze::time();
-        kernel_time.set_label(times.0.as_str());
-        userspace_time.set_label(times.1.as_str());
-        total_time.set_label(times.2.as_str());
-    }
 }
 
 /// Updates the associated journal `TextView` with the contents of the unit's journal log.
 fn update_journal(journal: &gtk::TextView, unit: &SystemdUnit) {
     journal.get_buffer().map(|buffer| buffer.set_text(unit.get_journal().as_str()));
-}
-
-/// Obtains the index of the currently-selected row, else returns the default of 0.
-fn get_selected_row(list: &gtk::ListBox) -> usize {
-    match list.get_selected_row() {
-        Some(row) => row.get_index() as usize,
-        None      => 0
-    }
-}
-
-/// Obtains the currently-selected unit and it's associated icon
-fn get_current_unit<'a>(units: &'a [SystemdUnit], units_box: &gtk::ListBox, icons: &'a [gtk::Image]) -> (&'a SystemdUnit, &'a gtk::Image) {
-    let index = get_selected_row(units_box);
-    unsafe { (units.get_unchecked(index), icons.get_unchecked(index)) }
 }
 
 pub fn launch() {
@@ -139,6 +56,7 @@ pub fn launch() {
     let analyze_header: gtk::HeaderBar         = builder.get_object("analyze_bar").unwrap();
     let units_header: gtk::HeaderBar           = builder.get_object("right_bar").unwrap();
 
+    // Set the window controls to the left if the button layout is `Left`, else set it to the right.
     match button_layout::get() {
         ButtonLayout::Right => {
             left_bar.set_show_close_button(false);
@@ -199,7 +117,7 @@ pub fn launch() {
         ($units:ident, $list:ident, $active_icons:ident, $enable_icons:ident) => {{
             for unit in $units.clone() {
                 let mut unit_row = gtk::ListBoxRow::new();
-                create_row(&mut unit_row, &unit, &mut $active_icons, &mut $enable_icons);
+                units::create_row(&mut unit_row, &unit, &mut $active_icons, &mut $enable_icons);
                 $list.insert(&unit_row, -1);
             }
         }}
@@ -245,7 +163,7 @@ pub fn launch() {
     }
 
     // Setup the Analyze stack
-    setup_systemd_analyze(&builder);
+    analyze::setup(&builder);
 
     // Initialize all of the services, sockets, timers and their respective signals.
     let unit_files                 = dbus::list_unit_files();
@@ -280,9 +198,9 @@ pub fn launch() {
         gtk::timeout_add_seconds(1, move || {
             if let Some(child) = unit_stack.get_visible_child_name() {
                 let unit = match child.as_str() {
-                    "Services" => unsafe { services.get_unchecked(get_selected_row(&services_list)) },
-                    "Sockets"  => unsafe { sockets.get_unchecked(get_selected_row(&sockets_list)) },
-                    "Timers"   => unsafe { timers.get_unchecked(get_selected_row(&timers_list)) },
+                    "Services" => units::get_current_unit(&services, &services_list),
+                    "Sockets"  => units::get_current_unit(&sockets, &sockets_list),
+                    "Timers"   => units::get_current_unit(&timers, &timers_list),
                     _          => unreachable!()
                 };
                 update_journal(&unit_journal, unit);
@@ -339,27 +257,35 @@ pub fn launch() {
         ablement_switch.connect_state_set(move |switch, enabled| {
             if let Some(child) = unit_stack.get_visible_child_name() {
                 let (unit, icon) = match child.as_str() {
-                    "Services" => get_current_unit(&services, &services_list, &services_icons_enabled),
-                    "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_enabled),
-                    "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_enabled),
+                    "Services" => units::get_current_unit_icons(&services, &services_list, &services_icons_enabled),
+                    "Sockets"  => units::get_current_unit_icons(&sockets, &sockets_list, &sockets_icons_enabled),
+                    "Timers"   => units::get_current_unit_icons(&timers, &timers_list, &timers_icons_enabled),
                     _          => unreachable!()
                 };
                 if enabled && !unit.is_enabled() {
                     match unit.enable() {
-                        Ok(message)  => {
-                            println!("{}", message);
+                        Ok(unit_was_enabled) => {
+                            if unit_was_enabled {
+                                println!("systemd-manager: {} was already enabled", unit.name);
+                            } else {
+                                println!("systemd-manager: {} has been enabled", unit.name);
+                            }
                             update_icon(icon, true);
                         },
-                        Err(message) => println!("{}", message)
+                        Err(message) => println!("systemd-manager: {} could not be enabled: {}", unit.name, message)
                     }
                     switch.set_state(true);
                 } else if !enabled && unit.is_enabled() {
                     match unit.disable() {
-                        Ok(message)  => {
-                            println!("{}", message);
+                        Ok(unit_was_disabled) => {
+                            if unit_was_disabled {
+                                println!("systemd-manager: {} was already disabled", unit.name);
+                            } else {
+                                println!("systemd-manager: {} has been disabled", unit.name);
+                            }
                             update_icon(icon, false);
                         },
-                        Err(message) => println!("{}", message)
+                        Err(message) => println!("systemd-manager: {} could not be disabled: {}", unit.name, message)
                     }
                     switch.set_state(false);
                 }
@@ -384,19 +310,19 @@ pub fn launch() {
         start_button.connect_clicked(move |button| {
             if let Some(child) = unit_stack.get_visible_child_name() {
                 let (unit, icon) = match child.as_str() {
-                    "Services" => get_current_unit(&services, &services_list, &services_icons_active),
-                    "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
-                    "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
+                    "Services" => units::get_current_unit_icons(&services, &services_list, &services_icons_active),
+                    "Sockets"  => units::get_current_unit_icons(&sockets, &sockets_list, &sockets_icons_active),
+                    "Timers"   => units::get_current_unit_icons(&timers, &timers_list, &timers_icons_active),
                     _ => unreachable!()
                 };
                 match unit.start() {
-                    Ok(message) => {
-                       println!("{}", message);
+                    None => {
+                       println!("systemd-manager: {} successfully started", unit.name);
                        update_icon(icon, true);
                        button.set_visible(false);
                        stop_button.set_visible(true);
                    },
-                   Err(message) => println!("{}", message)
+                   Some(error) => println!("systemd-manager: {} failed to start: {}", unit.name, error)
                 }
             }
 
@@ -419,19 +345,19 @@ pub fn launch() {
         stop_button.connect_clicked(move |button| {
             if let Some(child) = unit_stack.get_visible_child_name() {
                 let (unit, icon) = match child.as_str() {
-                    "Services" => get_current_unit(&services, &services_list, &services_icons_active),
-                    "Sockets"  => get_current_unit(&sockets, &sockets_list, &sockets_icons_active),
-                    "Timers"   => get_current_unit(&timers, &timers_list, &timers_icons_active),
+                    "Services" => units::get_current_unit_icons(&services, &services_list, &services_icons_active),
+                    "Sockets"  => units::get_current_unit_icons(&sockets, &sockets_list, &sockets_icons_active),
+                    "Timers"   => units::get_current_unit_icons(&timers, &timers_list, &timers_icons_active),
                     _ => unreachable!()
                 };
                 match unit.stop() {
-                    Ok(message) => {
-                        println!("{}", message);
+                    None => {
+                        println!("systemd-manager: {} successfully stopped", unit.name);
                         update_icon(icon, false);
                         button.set_visible(false);
                         start_button.set_visible(true);
                     },
-                    Err(message) => println!("{}", message)
+                    Some(error) => println!("systemd-manager: {} failed to stop: {}", unit.name, error)
                 }
             }
         });
@@ -453,13 +379,17 @@ pub fn launch() {
                 if let Some(text) = buffer.get_text(&start, &end, true) {
                     if let Some(child) = unit_stack.get_visible_child_name() {
                         let unit = match child.as_str() {
-                            "Services" => unsafe { services.get_unchecked(get_selected_row(&services_list)) },
-                            "Sockets"  => unsafe { sockets.get_unchecked(get_selected_row(&sockets_list)) },
-                            "Timers"   => unsafe { timers.get_unchecked(get_selected_row(&timers_list)) },
+                            "Services" => units::get_current_unit(&services, &services_list),
+                            "Sockets"  => units::get_current_unit(&sockets, &sockets_list),
+                            "Timers"   => units::get_current_unit(&timers, &timers_list),
                             _          => unreachable!()
                         };
-                        if let Err(message) = fs::OpenOptions::new().write(true).open(&unit.path)
-                                .map(|mut file| file.write(text.as_bytes())) {
+                        // Open the unit file with write access
+                        let status = fs::OpenOptions::new().write(true).open(&unit.path)
+                            // Attempt to write to the file, else return an error message.
+                            .map(|mut file| file.write(text.as_bytes()));
+
+                        if let Err(message) = status {
                             println!("systemd-manager: unable to save unit file: {}", message.to_string());
                         }
                     }

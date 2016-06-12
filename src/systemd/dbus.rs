@@ -24,10 +24,10 @@ macro_rules! dbus_connect {
 
 pub trait Dbus {
     fn is_enabled(&self) -> bool;
-    fn enable(&self) -> Result<String, String>;
-    fn disable(&self) -> Result<String, String>;
-    fn start(&self) -> Result<String, String>;
-    fn stop(&self) -> Result<String, String>;
+    fn enable(&self) -> Result<bool, String>;
+    fn disable(&self) -> Result<bool, String>;
+    fn start(&self) -> Option<String>;
+    fn stop(&self) -> Option<String>;
 }
 
 
@@ -43,54 +43,42 @@ impl Dbus for SystemdUnit {
 
     /// Takes the unit pathname of a service and enables it via dbus.
     /// If dbus replies with `[Bool(true), Array([], "(sss)")]`, the service is already enabled.
-    fn enable(&self) -> Result<String, String> {
+    fn enable(&self) -> Result<bool, String> {
         let mut message = dbus_message!("EnableUnitFiles");
         message.append_items(&[[self.name.as_str()][..].into(), false.into(), true.into()]);
-        match dbus_connect!(message) {
-            Ok(reply) => {
-                if format!("{:?}", reply.get_items()) == "[Bool(true), Array([], \"(sss)\")]" {
-                    Ok(format!("{} already enabled", self.name))
-                } else {
-                    Ok(format!("{} has been enabled", self.name))
-                }
-            },
-            Err(reply) => Err(format!("Error enabling {}:\n{:?}", self.name, reply))
-        }
+        dbus_connect!(message)
+            // Return Ok(true) if the unit is already enabled
+            .map(|reply| format!("{:?}", reply.get_items()) == "[Bool(true), Array([], \"(sss)\")]")
+            // Return `Err` if the unit could not be enabled.
+            .map_err(|reply| reply.to_string())
     }
 
     /// Takes the unit pathname as input and disables it via dbus.
     /// If dbus replies with `[Array([], "(sss)")]`, the service is already disabled.
-    fn disable(&self) -> Result<String, String> {
+    fn disable(&self) -> Result<bool, String> {
         let mut message = dbus_message!("DisableUnitFiles");
         message.append_items(&[[self.name.as_str()][..].into(), false.into()]);
-        match dbus_connect!(message) {
-            Ok(reply) => {
-                if format!("{:?}", reply.get_items()) == "[Array([], \"(sss)\")]" {
-                    Ok(format!("{} is already disabled", self.name))
-                } else {
-                    Ok(format!("{} has been disabled", self.name))
-                }
-            },
-            Err(reply) => Err(format!("Error disabling {}:\n{:?}", self.name, reply))
-        }
+        dbus_connect!(message)
+            // Return Ok(true) if the unit is already enabled
+            .map(|reply| format!("{:?}", reply.get_items()) == "[Array([], \"(sss)\")]")
+            // Return `Err` if the unit could not be enabled.
+            .map_err(|reply| reply.to_string())
     }
 
-    /// Takes a unit name as input and attempts to start it
-    fn start(&self) -> Result<String, String> {
+    /// Takes a unit name as input and attempts to start it. It returns an error if an error occurs.
+    fn start(&self) -> Option<String> {
         let mut message = dbus_message!("StartUnit");
         message.append_items(&[self.name.as_str().into(), "fail".into()]);
-        dbus_connect!(message)
-            .map_err(|err| format!("{} failed to start:\n{}", self.name, err.to_string()))
-            .map(|_| format!("{} successfully started", self.name))
+        // Return `Some(error)` if the unit could not be started, else return `None`.
+        dbus_connect!(message).err().map(|err| err.to_string())
     }
 
     /// Takes a unit name as input and attempts to stop it.
-    fn stop(&self) -> Result<String, String> {
+    fn stop(&self) -> Option<String> {
         let mut message = dbus_message!("StopUnit");
         message.append_items(&[self.name.as_str().into(), "fail".into()]);
-        dbus_connect!(message)
-            .map_err(|err| format!("{} failed to stop:\n{}", self.name, err.to_string()))
-            .map(|_| format!("{} successfully stopped", self.name))
+        // Return `Some(error)` if the unit could not be stopped, else return `None`.
+        dbus_connect!(message).err().map(|err| err.to_string())
     }
 }
 
