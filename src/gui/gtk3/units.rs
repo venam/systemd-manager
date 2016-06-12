@@ -47,7 +47,8 @@ pub fn get_current_unit<'a>(units: &'a [SystemdUnit], list: &ListBox) -> &'a Sys
 }
 
 /// Obtains the currently-selected unit and it's associated icon
-pub fn get_current_unit_icons<'a>(units: &'a [SystemdUnit], units_box: &ListBox, icons: &'a [Image]) -> (&'a SystemdUnit, &'a Image) {
+pub fn get_current_unit_icons<'a>(units: &'a [SystemdUnit], units_box: &ListBox, icons: &'a [Image])
+        -> (&'a SystemdUnit, &'a Image) {
     let index = get_selected_row(units_box);
     (&units[index], &icons[index])
 }

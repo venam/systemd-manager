@@ -1,5 +1,6 @@
 extern crate dbus;
 extern crate quickersort;
+use super::dbus::dbus::MessageItem;
 use super::{SystemdUnit, UnitType, UnitState};
 use std::path::Path;
 
@@ -47,8 +48,8 @@ impl Dbus for SystemdUnit {
         let mut message = dbus_message!("EnableUnitFiles");
         message.append_items(&[[self.name.as_str()][..].into(), false.into(), true.into()]);
         dbus_connect!(message)
-            // Return Ok(true) if the unit is already enabled
-            .map(|reply| format!("{:?}", reply.get_items()) == "[Bool(true), Array([], \"(sss)\")]")
+            // Return `Ok(true)` if the unit is already enabled
+            .map(|reply| is_enabled(&reply.get_items()))
             // Return `Err` if the unit could not be enabled.
             .map_err(|reply| reply.to_string())
     }
@@ -59,9 +60,9 @@ impl Dbus for SystemdUnit {
         let mut message = dbus_message!("DisableUnitFiles");
         message.append_items(&[[self.name.as_str()][..].into(), false.into()]);
         dbus_connect!(message)
-            // Return Ok(true) if the unit is already enabled
-            .map(|reply| format!("{:?}", reply.get_items()) == "[Array([], \"(sss)\")]")
-            // Return `Err` if the unit could not be enabled.
+            // Return `Ok(true)` if the unit is already disabled
+            .map(|reply| is_disabled(&reply.get_items()))
+            // Return `Err` if the unit could not be disabled.
             .map_err(|reply| reply.to_string())
     }
 
@@ -80,6 +81,16 @@ impl Dbus for SystemdUnit {
         // Return `Some(error)` if the unit could not be stopped, else return `None`.
         dbus_connect!(message).err().map(|err| err.to_string())
     }
+}
+
+/// Return true if the message indicates that the unit is already enabled.
+fn is_enabled(items: &[MessageItem]) -> bool {
+    format!("{:?}", items) == "[Bool(true), Array([], \"(sss)\")]"
+}
+
+/// Return true if the message indicates that the unit is already disabled.
+fn is_disabled(items: &[MessageItem]) -> bool {
+    format!("{:?}", items) == "[Array([], \"(sss)\")]"
 }
 
 /// Communicates with dbus to obtain a list of unit files and returns them as a `Vec<SystemdUnit>`.
@@ -111,7 +122,7 @@ fn parse_message(input: &str) -> Vec<SystemdUnit> {
         systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype});
     }
 
-    // Sort the list of units and then return the list.
+    // Sort the list of units by their unit names using quickersort and then return the list.
     quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     systemd_units
 }

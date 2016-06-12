@@ -82,6 +82,7 @@ fn parse_time(input: &str) -> u32 {
     } else if input.ends_with("min") {
         input[0..input.len()-3].parse::<u32>().unwrap_or(0) * 60000u32
     } else {
+        println!("systemd-manager: unknown unit of measurement: {}", input);
         0u32
     }
 }

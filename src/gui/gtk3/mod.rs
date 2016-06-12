@@ -27,6 +27,7 @@ fn update_journal(journal: &gtk::TextView, unit: &SystemdUnit) {
 pub fn launch() {
     gtk::init().unwrap_or_else(|_| panic!("systemd-manager: failed to initialize GTK."));
 
+    // Initialize all of the widgets that this program will be manipulating from the glade file.
     let builder = gtk::Builder::new_from_string(include_str!("interface.glade"));
     let window: gtk::Window                    = builder.get_object("main_window").unwrap();
     let unit_stack: gtk::Stack                 = builder.get_object("unit_stack").unwrap();
@@ -56,18 +57,12 @@ pub fn launch() {
     let analyze_header: gtk::HeaderBar         = builder.get_object("analyze_bar").unwrap();
     let units_header: gtk::HeaderBar           = builder.get_object("right_bar").unwrap();
 
-    // Set the window controls to the left if the button layout is `Left`, else set it to the right.
-    match button_layout::get() {
-        ButtonLayout::Right => {
-            left_bar.set_show_close_button(false);
-            units_header.set_show_close_button(true);
-            analyze_header.set_show_close_button(true);
-        },
-        ButtonLayout::Left => {
-            left_bar.set_show_close_button(true);
-            units_header.set_show_close_button(false);
-            analyze_header.set_show_close_button(false);
-        }
+
+    {   // Set the window controls to the left if the button layout is `Left`, else set it to the right.
+        let layout_boolean = button_layout::get() == ButtonLayout::Right;
+        left_bar.set_show_close_button(!layout_boolean);
+        units_header.set_show_close_button(layout_boolean);
+        analyze_header.set_show_close_button(layout_boolean);
     }
 
     macro_rules! units_menu_clicked {
@@ -83,30 +78,32 @@ pub fn launch() {
             let start_button    = start_button.clone();
             let stop_button     = stop_button.clone();
             let dependencies    = dependencies_view.clone();
+            let unit_journal    = unit_journal.clone();
             $units_button.connect_clicked(move |_| {
                 stack.set_visible_child_name($unit_type);
                 label.set_text($unit_type);
                 popover.set_visible(false);
                 if let Some(row) = $list.get_row_at_index(0) {
                     $list.select_row(Some(&row));
-                    let unit = &$units[0];
+                    let unit = &$units[row.get_index() as usize];
+                    // Obtain information from the unit's file.
                     let info = unit.get_info();
+                    // Set the header label as the description if available, or the unit name if not.
+                    header.set_label(systemd::get_unit_description(&info).map_or(&unit.name, |desc| desc));
+                    // Write the collected information to the unit file's textivew buffer.
                     unit_info.get_buffer().map(|buffer| buffer.set_text(info.as_str()));
-                    ablement_switch.set_active(unit.is_enabled());
-                    ablement_switch.set_state(ablement_switch.get_active());
-                    match systemd::get_unit_description(&info) {
-                        Some(description) => header.set_label(description),
-                        None              => header.set_label(&unit.name)
-                    }
-                    if unit.is_active() {
-                        start_button.set_visible(false);
-                        stop_button.set_visible(true);
-                    } else {
-                        start_button.set_visible(true);
-                        stop_button.set_visible(false);
-                    }
-
+                    // Update the dependency list with the list of dependencies for that unit.
                     dependencies.get_buffer().map(|buffer| buffer.set_text(unit.list_dependencies().as_str()));
+                    // Update the unit's journal view
+                    update_journal(&unit_journal, &unit);
+                    // If the unit is enabled, set the state and active status as true.
+                    let unit_enabled = unit.is_enabled();
+                    ablement_switch.set_active(unit_enabled);
+                    ablement_switch.set_state(unit_enabled);
+                    // Use the unit active status to determine which button should be currently visible.
+                    let status = unit.is_active();
+                    start_button.set_visible(!status);
+                    stop_button.set_visible(status);
                 }
             });
         }}
@@ -137,26 +134,25 @@ pub fn launch() {
             let unit_journal    = unit_journal.clone();
             $list.connect_row_selected(move |_, row| {
                 if let Some(row) = row.clone() {
-                    let unit        = &$units[row.get_index() as usize];
-                    update_journal(&unit_journal, &unit);
-                    let description = unit.get_info();
-                    unit_info.get_buffer().map(|buffer| buffer.set_text(description.as_str()));
-                    ablement_switch.set_active(unit.is_enabled());
-                    ablement_switch.set_state(ablement_switch.get_active());
-                    header.set_label(unit.name.as_str());
-                    match systemd::get_unit_description(&description) {
-                        Some(description) => header.set_label(description),
-                        None              => header.set_label(&unit.name)
-                    }
-                    if unit.is_active() {
-                        start_button.set_visible(false);
-                        stop_button.set_visible(true);
-                    } else {
-                        start_button.set_visible(true);
-                        stop_button.set_visible(false);
-                    }
-
+                    let unit = &$units[row.get_index() as usize];
+                    // Obtain information from the unit's file.
+                    let info = unit.get_info();
+                    // Set the header label as the description if available, or the unit name if not.
+                    header.set_label(systemd::get_unit_description(&info).map_or(&unit.name, |desc| desc));
+                    // Write the collected information to the unit file's textivew buffer.
+                    unit_info.get_buffer().map(|buffer| buffer.set_text(info.as_str()));
+                    // Update the dependency list with the list of dependencies for that unit.
                     dependencies.get_buffer().map(|buffer| buffer.set_text(unit.list_dependencies().as_str()));
+                    // Update the unit's journal view
+                    update_journal(&unit_journal, &unit);
+                    // If the unit is enabled, set the state and active status as true.
+                    let unit_enabled = unit.is_enabled();
+                    ablement_switch.set_active(unit_enabled);
+                    ablement_switch.set_state(unit_enabled);
+                    // Use the unit active status to determine which button should be currently visible.
+                    let status = unit.is_active();
+                    start_button.set_visible(!status);
+                    stop_button.set_visible(status);
                 }
             });
         }}
@@ -165,23 +161,27 @@ pub fn launch() {
     // Setup the Analyze stack
     analyze::setup(&builder);
 
-    // Initialize all of the services, sockets, timers and their respective signals.
+    // Initialize all of the services, sockets, and timers.
     let unit_files                 = dbus::list_unit_files();
     let services                   = systemd::collect_togglable_services(&unit_files);
     let sockets                    = systemd::collect_togglable_sockets(&unit_files);
     let timers                     = systemd::collect_togglable_timers(&unit_files);
+    // Create vectors to contain status icons that can later be manipulated.
     let mut services_icons_active  = Vec::new();
     let mut services_icons_enabled = Vec::new();
     let mut sockets_icons_active   = Vec::new();
     let mut sockets_icons_enabled  = Vec::new();
     let mut timers_icons_active    = Vec::new();
     let mut timers_icons_enabled   = Vec::new();
+    // Initialize the rows in each of the ListBoxes.
     initialize_units!(services, services_list, services_icons_active, services_icons_enabled);
     initialize_units!(sockets, sockets_list, sockets_icons_active, sockets_icons_enabled);
     initialize_units!(timers, timers_list, timers_icons_active, timers_icons_enabled);
+    // Program what happens when a row is selected for each of the ListBoxes.
     signal_row_selected!(timers, timers_list);
     signal_row_selected!(services, services_list);
     signal_row_selected!(sockets, sockets_list);
+    // Program what happens when a menu button is clicked.
     units_menu_clicked!(services_button, services, services_list, "Services");
     units_menu_clicked!(sockets_button, sockets, sockets_list, "Sockets");
     units_menu_clicked!(timers_button, timers, timers_list, "Timers");

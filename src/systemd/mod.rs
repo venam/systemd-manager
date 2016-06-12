@@ -92,23 +92,50 @@ pub fn get_unit_description(info: &str) -> Option<&str> {
         .map(|description| description.split_at(12).1)
 }
 
+/// Returns true if the given `UnitType` and `UnitState` indicates that the unit can be toggled.
+fn is_togglable(utype: &UnitType, ustate: &UnitState, wanted_type: &UnitType) -> bool {
+    utype == wanted_type && (ustate == &UnitState::Enabled || ustate == &UnitState::Disabled)
+}
+
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing services which can be enabled and
 /// disabled, which are also not templates.
 pub fn collect_togglable_services(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
-    units.iter().filter(|x| x.utype == UnitType::Service && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.ends_with("@.service")).cloned().collect()
+    units.iter().filter(|x| is_togglable(&x.utype, &x.state, &UnitType::Service)
+        && !x.path.ends_with("@.service")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing sockets which can be enabled and
 /// disabled, which are also not templates.
 pub fn collect_togglable_sockets(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
-    units.iter().filter(|x| x.utype == UnitType::Socket && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.ends_with("@.socket")).cloned().collect()
+    units.iter().filter(|x| is_togglable(&x.utype, &x.state, &UnitType::Socket)
+        && !x.path.ends_with("@.socket")).cloned().collect()
 }
 
 /// Takes a `Vec<SystemdUnit>` as input and returns a new vector only containing timers which can be enabled and
 /// disabled, which are also not templates.
 pub fn collect_togglable_timers(units: &[SystemdUnit]) -> Vec<SystemdUnit> {
-    units.iter().filter(|x| x.utype == UnitType::Timer && (x.state == UnitState::Enabled ||
-        x.state == UnitState::Disabled) && !x.path.ends_with("@.timer")).cloned().collect()
+    units.iter().filter(|x| is_togglable(&x.utype, &x.state, &UnitType::Timer)
+        && !x.path.ends_with("@.timer")).cloned().collect()
+}
+
+#[test]
+fn test_get_unit_description() {
+    let input = "Description=Name of Service";
+    assert_eq!(get_unit_description(input), Some("Name of Service"));
+    let input = "No Description";
+    assert_eq!(get_unit_description(input), None);
+}
+
+#[test]
+fn test_is_togglable() {
+    let static_state   = &UnitState::Static;
+    let enabled_state  = &UnitState::Enabled;
+    let disabled_state = &UnitState::Disabled;
+    let service_type   = &UnitType::Service;
+    let socket_type    = &UnitType::Socket;
+    let timer_type     = &UnitType::Timer;
+    assert_eq!(is_togglable(service_type, static_state, &UnitType::Service), false);
+    assert_eq!(is_togglable(service_type, enabled_state, &UnitType::Service), true);
+    assert_eq!(is_togglable(socket_type, disabled_state, &UnitType::Socket), true);
+    assert_eq!(is_togglable(timer_type, disabled_state, &UnitType::Timer), true);
 }
