@@ -29,8 +29,8 @@ This is available in the AUR as a git package: [`systemd-manager-git`](https://a
 Simply run this in a terminal to `wget` the Debian package and `dpkg -i` it.
 
 ```sh
-wget https://github.com/mmstick/systemd-manager/releases/download/0.4.5/systemd-manager_0.4.5_amd64.deb
-sudo dpkg -i systemd-manager_0.4.5_amd64.deb
+wget https://github.com/mmstick/systemd-manager/releases/download/0.4.7/systemd-manager_0.4.7_amd64.deb
+sudo dpkg -i systemd-manager_0.4.7_amd64.deb
 ```
 
 ### Building From Source
