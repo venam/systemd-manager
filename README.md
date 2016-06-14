@@ -40,7 +40,7 @@ sudo dpkg -i systemd-manager_0.4.7_amd64.deb
 For Ubuntu users, this will automatically install `libgtk-3-dev`, generate a systemd-manager Debian package and automatically install it.
 
 ```sh
-git clone https://github.com/mmstick/systemd-manager && cd systemd-manager && make ubuntu
+git clone https://github.com/mmstick/systemd-manager && cd systemd-manager && make deb
 ```
 
 #### Everyone else

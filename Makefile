@@ -36,7 +36,7 @@ deb:
 	# Set the architecture in the Debian control file based on what `dpkg` reports.
 	sed "7s/.*/Architecture: $(shell dpkg --print-architecture)/g" -i debian/DEBIAN/control
 	# Install the files into the debian directory.
-	install -Dsm 755 target/release/systemd-manager debian/usr/binsystemd-manager
+	install -Dsm 755 target/release/systemd-manager debian/usr/bin/systemd-manager
 	install -Dm 755 assets/systemd-manager-pkexec debian/usr/bin/systemd-manager-pkexec
 	install -Dm 644 assets/systemd-manager.desktop debian/usr/share/applications/systemd-manager.desktop
 	install -Dm 644 assets/$(policykit) debian/usr/share/polkit-1/actions/$(policykit)
