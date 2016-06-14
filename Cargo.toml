@@ -13,3 +13,7 @@ dbus = "0.3.3"
 gtk = { git = "https://github.com/gtk-rs/gtk.git", features = ["v3_16"] }
 gdk = { git = "https://github.com/gtk-rs/gdk.git" }
 quickersort = "2.0.1"
+
+[profile.release]
+opt-level = 3
+lto = true

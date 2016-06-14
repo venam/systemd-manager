@@ -1,18 +1,15 @@
 DESTDIR = /usr
 version = $(shell awk 'NR == 3 {print substr($$3, 2, length($$3)-2)}' Cargo.toml)
-arch = $(shell dpkg --print-architecture)
+policykit_src = "assets/org.freedesktop.policykit.systemd-manager.policy"
 
 all:
-	cargo rustc --release -- -C opt-level=3 -C lto
+	cargo build --release
 
 install:
-	install -d $(DESTDIR)/bin/
-	install -d $(DESTDIR)/share/applications/
-	install -d $(DESTDIR)/share/polkit-1/actions/
-	install -m 755 target/release/systemd-manager $(DESTDIR)/bin/
-	install -m 755 assets/systemd-manager-pkexec $(DESTDIR)/bin/
-	install -m 644 assets/systemd-manager.desktop $(DESTDIR)/share/applications/
-	install -m 644 assets/org.freedesktop.policykit.systemd-manager.policy $(DESTDIR)/share/polkit-1/actions/
+	install -Dm 755 target/release/systemd-manager "$(DESTDIR)/bin/systemd-manager"
+	install -Dm 755 assets/systemd-manager-pkexec "$(DESTDIR)/bin/systemd-manager-pkexec"
+	install -Dm 644 assets/systemd-manager.desktop "$(DESTDIR)/share/applications/systemd-manager.desktop"
+	install -Dm 644 $(policykit_src) "$(DESTDIR)/share/polkit-1/actions/org.freedesktop.policykit.systemd-manager.policy"
 
 uninstall:
 	rm $(DESTDIR)/bin/systemd-manager
@@ -21,28 +18,20 @@ uninstall:
 	rm $(DESTDIR)/share/polkit-1/actions/org.freedesktop.policykit.systemd-manager.policy
 
 tar:
-	install -d systemd-manager
-	install -d systemd-manager/bin
-	install -d systemd-manager/share/applications
-	install -d systemd-manager/share/polkit-1/actions
-	install -m 755 target/release/systemd-manager systemd-manager/bin/
-	install -m 755 assets/systemd-manager-pkexec systemd-manager/bin/
-	install -m 644 assets/systemd-manager.desktop systemd-manager/share/applications/
-	install -m 644 assets/org.freedesktop.policykit.systemd-manager.policy systemd-manager/share/polkit-1/actions/
-	tar cf - "systemd-manager" | xz -zf > systemd-manager-$(version).tar.xz
+	install -Dm 755 target/release/systemd-manager systemd-manager/bin/systemd-manager
+	install -Dm 755 assets/systemd-manager-pkexec systemd-manager/bin/systemd-manager-pkexec
+	install -Dm 644 assets/systemd-manager.desktop systemd-manager/share/applications/systemd-manager.desktop
+	install -Dm 644 $(policykit_src) systemd-manager/share/polkit-1/actions/org.freedesktop.policykit.systemd-manager.policy
+	tar cf - "systemd-manager" | xz -zf > systemd-manager_$(version).tar.xz
 
-ubuntu:
-	sudo apt install libgtk-3-dev
+deb:
+	dpkg -s libgtk-3-dev >/dev/null 2>&1 || sudo apt install libgtk-3-dev -y
 	cargo build --release
-	strip target/release/systemd-manager
 	sed "2s/.*/Version: $(version)/g" -i debian/DEBIAN/control
-	sed "7s/.*/Architecture: $(arch)/g" -i debian/DEBIAN/control
-	install -d debian/usr/bin
-	install -d debian/usr/share/applications
-	install -d debian/usr/share/polkit-1/actions/
-	install -m 755 target/release/systemd-manager debian/usr/bin
-	install -m 755 assets/systemd-manager-pkexec debian/usr/bin/
-	install -m 644 assets/systemd-manager.desktop debian/usr/share/applications/
-	install -m 644 assets/org.freedesktop.policykit.systemd-manager.policy debian/usr/share/polkit-1/actions
-	fakeroot dpkg-deb --build debian systemd-manager.deb
-	sudo dpkg -i systemd-manager.deb
+	sed "7s/.*/Architecture: $(shell dpkg --print-architecture)/g" -i debian/DEBIAN/control
+	install -Dsm 755 target/release/systemd-manager debian/usr/binsystemd-manager
+	install -Dm 755 assets/systemd-manager-pkexec debian/usr/bin/systemd-manager-pkexec
+	install -Dm 644 assets/systemd-manager.desktop debian/usr/share/applications/systemd-manager.desktop
+	install -Dm 644 $(policykit_src) debian/usr/share/polkit-1/actions/org.freedesktop.policykit.systemd-manager.policy
+	fakeroot dpkg-deb --build debian systemd-manager_$(version)_$(shell dpkg --print-architecture).deb
+	sudo dpkg -i systemd-manager_$(version)_$(shell dpkg --print-architecture).deb
