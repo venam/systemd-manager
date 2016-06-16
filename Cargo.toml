@@ -16,10 +16,10 @@ depends = "libc6, libgtk-3-0 (>= 3.16)"
 section = "admin"
 priority = "optional"
 assets = [
-    ["assets/org.freedesktop.policykit.systemd-manager.policy", "/usr/share/polkit-1/actions/", "644"],
-    ["assets/systemd-manager.desktop", "/usr/share/applications/", "644"],
-    ["assets/systemd-manager-pkexec", "/usr/bin/", "755"],
-    ["target/release/systemd-manager", "/usr/bin", "755"]
+    ["assets/org.freedesktop.policykit.systemd-manager.policy", "usr/share/polkit-1/actions/", "644"],
+    ["assets/systemd-manager.desktop", "usr/share/applications/", "644"],
+    ["assets/systemd-manager-pkexec", "usr/bin/", "755"],
+    ["target/release/systemd-manager", "usr/bin/", "755"]
 ]
 
 [dependencies]
