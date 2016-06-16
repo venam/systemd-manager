@@ -35,12 +35,16 @@ sudo dpkg -i systemd-manager_0.4.7_amd64.deb
 
 ### Building From Source
 
-#### Ubuntu
+#### Debian/Ubuntu
 
-For Ubuntu users, this will automatically install `libgtk-3-dev`, generate a systemd-manager Debian package and automatically install it.
+For Debian-based users, ensure that you have installed the `cargo-deb` subcommand. The `cargo-deb` subcommand build and generate a Debian package based on information in the `Cargo.toml` file automatically.
 
 ```sh
-git clone https://github.com/mmstick/systemd-manager && cd systemd-manager && make deb
+sudo apt install libgtk-3-dev -y
+cargo install --git https://github.com/mmstick/cargo-deb
+git clone https://github.com/mmstick/systemd-manager
+cd systemd-manager
+cargo deb && sudo dpkg -i systemd-manager*.deb
 ```
 
 #### Everyone else

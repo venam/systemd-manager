@@ -83,16 +83,6 @@ impl Dbus for SystemdUnit {
     }
 }
 
-/// Return true if the message indicates that the unit is already enabled.
-fn is_enabled(items: &[MessageItem]) -> bool {
-    format!("{:?}", items) == "[Bool(true), Array([], \"(sss)\")]"
-}
-
-/// Return true if the message indicates that the unit is already disabled.
-fn is_disabled(items: &[MessageItem]) -> bool {
-    format!("{:?}", items) == "[Array([], \"(sss)\")]"
-}
-
 /// Communicates with dbus to obtain a list of unit files and returns them as a `Vec<SystemdUnit>`.
 pub fn list_unit_files() -> Vec<SystemdUnit> {
     let message = dbus_connect!(dbus_message!("ListUnitFiles"))
@@ -125,4 +115,14 @@ fn parse_message(input: &str) -> Vec<SystemdUnit> {
     // Sort the list of units by their unit names using quickersort and then return the list.
     quickersort::sort_by(&mut systemd_units[..], &|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     systemd_units
+}
+
+/// Return true if the message indicates that the unit is already enabled.
+fn is_enabled(items: &[MessageItem]) -> bool {
+    format!("{:?}", items) == "[Bool(true), Array([], \"(sss)\")]"
+}
+
+/// Return true if the message indicates that the unit is already disabled.
+fn is_disabled(items: &[MessageItem]) -> bool {
+    format!("{:?}", items) == "[Array([], \"(sss)\")]"
 }
