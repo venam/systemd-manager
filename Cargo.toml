@@ -1,6 +1,6 @@
 [package]
 name = "systemd-manager"
-version = "0.4.7"
+version = "1.0.0"
 license = "MIT"
 authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
 description = "A GTK3 GUI for managing systemd services on Linux"
@@ -12,7 +12,7 @@ readme = "README.md"
 maintainer = "Michael Aaron Murphy <mmstickman@gmail.com>"
 copyright = "2015-2016, Michael Aaron Murphy <mmstickman@gmail.com>"
 license_file = ["LICENSE", "3"]
-depends = "libc6, libgtk-3-0 (>= 3.16)"
+depends = "$auto"
 extended_description = """\
 Written safely in Rust, this systemd manager provides a simple GTK3 GUI interface \
 that allows you to enable/disable/start/stop services, monitor service logs, and \
@@ -27,9 +27,9 @@ assets = [
 ]
 
 [dependencies]
-dbus = "0.3.3"
-gtk = { git = "https://github.com/gtk-rs/gtk.git", features = ["v3_16"] }
-gdk = { git = "https://github.com/gtk-rs/gdk.git" }
+dbus = "0.3.4"
+gtk = { version = "0.1.0", features = ["v3_16"] }
+gdk = { version = "0.5.0" }
 quickersort = "2.0.1"
 
 [profile.release]
