@@ -52,7 +52,7 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
         </child>
         <child>
           <object class="GtkButton" id="systemd_analyze">
-            <property name="label" translatable="yes">Systemd Analayze</property>
+            <property name="label" translatable="yes">Systemd Analyze</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
