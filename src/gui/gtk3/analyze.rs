@@ -1,4 +1,4 @@
-use gtk::{Builder, CellRendererText, Label, ListStore, TreeView, TreeViewColumn, Type};
+use gtk::*;
 use systemd::analyze::Analyze;
 
 /// Use `systemd-analyze blame` to fill out the information for the Analyze `gtk::Stack`.

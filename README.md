@@ -20,7 +20,7 @@ This is available in the AUR as a git package: [`systemd-manager-git`](https://a
 There are currently no PPAs to provide at this time. However, I am providing Debian packages which should largely be a two or three click install. This package should work on all Debian-based distributions that ship a version of GTK that
 is newer than GTK 3.16.
 
-https://github.com/mmstick/systemd-manager/releases/download/0.4.7/systemd-manager_0.4.7_amd64.deb
+https://github.com/mmstick/systemd-manager/releases/download/1.0.0/systemd-manager_1.0.0_amd64.deb
 
 ### Building From Source
 
