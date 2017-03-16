@@ -398,6 +398,9 @@ pub fn launch() {
         });
     }
 
+    // Fix https://github.com/mmstick/systemd-manager/issues/30
+    window.set_wmclass ("systemd-manager", "Systemd-manager");
+    
     window.show_all();
 
     // Quit the program when the program has been exited
