@@ -28,6 +28,11 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
   <!-- interface-description A GTK3-based Systemd Service Manager Written in Rust -->
   <!-- interface-copyright 2016 -->
   <!-- interface-authors Michael Aaron Murphy <mmstickman@gmail.com> -->
+  <object class="GtkImage" id="image1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-missing-image</property>
+  </object>
   <object class="GtkPopoverMenu" id="systemd_menu_popover">
     <property name="can_focus">False</property>
     <child>
@@ -353,6 +358,20 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                             <property name="expand">True</property>
                             <property name="fill">True</property>
                             <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="refresh_log">
+                            <property name="label">gtk-refresh</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <property name="use_stock">True</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
                           </packing>
                         </child>
                       </object>

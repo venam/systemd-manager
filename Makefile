@@ -25,8 +25,3 @@ tar:
 	install -Dm 644 assets/systemd-manager.desktop systemd-manager/share/applications/systemd-manager.desktop
 	install -Dm 644 assets/$(policykit) systemd-manager/share/polkit-1/actions/$(policykit)
 	tar cf - "systemd-manager" | xz -zf > systemd-manager_$(version)_$(shell uname -m).tar.xz
-
-
-deb:
-	dpkg -s libgtk-3-dev >/dev/null 2>&1 || sudo apt install libgtk-3-dev -y
-	cargo deb

@@ -1,6 +1,6 @@
 [package]
 name = "systemd-manager"
-version = "1.0.1"
+version = "1.0.2"
 license = "MIT"
 authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
 description = "A GTK3 GUI for managing systemd services on Linux"
@@ -8,30 +8,8 @@ keywords = [ "gtk", "linux", "systemd" ]
 repository = "https://github.com/mmstick/systemd-manager"
 readme = "README.md"
 
-[package.metadata.deb]
-maintainer = "Michael Aaron Murphy <mmstickman@gmail.com>"
-copyright = "2015-2016, Michael Aaron Murphy <mmstickman@gmail.com>"
-license_file = ["LICENSE", "3"]
-depends = "$auto"
-extended_description = """\
-Written safely in Rust, this systemd manager provides a simple GTK3 GUI interface \
-that allows you to enable/disable/start/stop services, monitor service logs, and \
-edit unit files without ever using the terminal."""
-section = "admin"
-priority = "optional"
-assets = [
-    ["assets/org.freedesktop.policykit.systemd-manager.policy", "usr/share/polkit-1/actions/", "644"],
-    ["assets/systemd-manager.desktop", "usr/share/applications/", "644"],
-    ["assets/systemd-manager-pkexec", "usr/bin/", "755"],
-    ["target/release/systemd-manager", "usr/bin/", "755"]
-]
-
 [dependencies]
 dbus = "0.5"
 gtk = { version = "0.1", features = ["v3_16"] }
 gdk = { version = "0.5" }
 quickersort = "2.0"
-
-[profile.release]
-opt-level = 3
-lto = true

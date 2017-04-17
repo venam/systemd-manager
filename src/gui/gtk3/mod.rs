@@ -56,7 +56,7 @@ pub fn launch() {
     let left_bar: gtk::HeaderBar               = builder.get_object("left_bar").unwrap();
     let analyze_header: gtk::HeaderBar         = builder.get_object("analyze_bar").unwrap();
     let units_header: gtk::HeaderBar           = builder.get_object("right_bar").unwrap();
-
+    let journal_refresh: gtk::Button           = builder.get_object("refresh_log").unwrap();
 
     {   // Set the window controls to the left if the button layout is `Left`, else set it to the right.
         let layout_boolean = button_layout::get() == ButtonLayout::Right;
@@ -186,7 +186,7 @@ pub fn launch() {
     units_menu_clicked!(sockets_button, sockets, sockets_list, "Sockets");
     units_menu_clicked!(timers_button, timers, timers_list, "Timers");
 
-    { // NOTE: Refresh the journal every second
+    { // NOTE: Refresh the journal when the refresh button is clicked
         let services      = services.clone();
         let services_list = services_list.clone();
         let sockets       = sockets.clone();
@@ -195,7 +195,8 @@ pub fn launch() {
         let timers_list   = timers_list.clone();
         let unit_stack    = unit_stack.clone();
         let unit_journal  = unit_journal.clone();
-        gtk::timeout_add_seconds(1, move || {
+
+        journal_refresh.connect_clicked(move |_| {
             if let Some(child) = unit_stack.get_visible_child_name() {
                 let unit = match child.as_str() {
                     "Services" => units::get_current_unit(&services, &services_list),
@@ -205,7 +206,6 @@ pub fn launch() {
                 };
                 update_journal(&unit_journal, unit);
             }
-            gtk::Continue(true)
         });
     }
 
@@ -400,7 +400,7 @@ pub fn launch() {
 
     // Fix https://github.com/mmstick/systemd-manager/issues/30
     window.set_wmclass ("systemd-manager", "Systemd-manager");
-    
+
     window.show_all();
 
     // Quit the program when the program has been exited

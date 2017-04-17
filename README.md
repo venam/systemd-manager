@@ -14,29 +14,7 @@ This is available in the AUR as a git package: [`systemd-manager-git`](https://a
 
 [RPM repositories](https://copr.fedorainfracloud.org/coprs/nunodias/systemd-manager/) have been made available for Fedora 22, 23 and 24 by Nuno Dias.
 
-
-### Ubuntu
-
-There are currently no PPAs to provide at this time. However, I am providing Debian packages which should largely be a two or three click install. This package should work on all Debian-based distributions that ship a version of GTK that
-is newer than GTK 3.16.
-
-https://github.com/mmstick/systemd-manager/releases/download/1.0.0/systemd-manager_1.0.0_amd64.deb
-
 ### Building From Source
-
-#### Debian/Ubuntu
-
-For Debian-based users, ensure that you have installed the `cargo-deb` subcommand. The `cargo-deb` subcommand build and generate a Debian package based on information in the `Cargo.toml` file automatically.
-
-```sh
-sudo apt install libgtk-3-dev -y
-cargo install --git https://github.com/mmstick/cargo-deb
-git clone https://github.com/mmstick/systemd-manager
-cd systemd-manager
-cargo deb && sudo dpkg -i systemd-manager*.deb
-```
-
-#### Everyone else
 
 This will simply install directly to the /usr prefix. Simply install Rust via [rustup.rs](https://www.rustup.rs/) and execute `make & sudo make install`. The installation of Rust software is incredibly simple as the process is largely just `cargo build --release`, but this installation script will install all the files needed by the application for proper integration with **PolicyKit** into the correct places in the filesystem, which `cargo install` does not perform.
 
