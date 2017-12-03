@@ -9,10 +9,11 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn new() -> Content {
+    pub fn new(views: &StackSwitcher) -> Content {
         let container = Stack::new();
         let units = Units::new();
-        container.add_named(&units.container, "units");
+        container.add_titled(&units.container, "Units", "Units");
+        views.set_stack(&container);
         Content { container, units }
     }
 }

@@ -242,8 +242,15 @@ pub fn get_journal(kind: Kind, name: &str) -> Option<String> {
     let cmd = if kind == Kind::System {
         Command::new("journalctl").arg("-b").arg("-r").arg("-u").arg(&name).output().ok()
     } else {
-        Command::new("journalctl").arg("--user").arg("-b").arg("-r").arg("-u").arg(&name).output().ok()
+        Command::new("journalctl")
+            .arg("--user")
+            .arg("-b")
+            .arg("-r")
+            .arg("-u")
+            .arg(&name)
+            .output()
+            .ok()
     };
-    
+
     cmd.and_then(|output| String::from_utf8(output.stdout).ok())
 }

@@ -62,8 +62,8 @@ impl UnitsSelection {
         switch_box.set_halign(Align::Center);
 
         container.pack_start(&switch_box, false, false, 0);
-        container.pack_start(&search, false, false, 0);
         container.pack_start(&units_stack, true, true, 0);
+        container.pack_start(&search, false, false, 0);
         container.set_border_width(3);
 
         UnitsSelection {
@@ -76,19 +76,6 @@ impl UnitsSelection {
             refresh,
         }
     }
-
-    pub fn update_list(&self, kind: Kind, new_items: &[systemd::Unit]) {
-        let units = if kind == Kind::System { &self.system_units } else { &self.user_units };
-
-        units.get_children().into_iter().for_each(|widget| widget.destroy());
-        new_items.into_iter().for_each(|item| {
-            let label = Label::new(item.name.as_str());
-            label.set_halign(Align::Start);
-            label.set_margin_left(5);
-            label.set_margin_right(15);
-            units.insert(&label, -1);
-        });
-    }
 }
 
 pub struct UnitsContent {
@@ -96,6 +83,7 @@ pub struct UnitsContent {
     pub description: Label,
     pub enabled:     Button,
     pub active:      Button,
+    pub file_save:   Button,
     pub notebook:    UnitsNotebook,
 }
 
@@ -109,10 +97,32 @@ impl UnitsContent {
         description.set_halign(Align::Start);
         description.set_margin_left(3);
 
+        let style = ".action_button { padding-left: 5px padding-right: 5px }";
+        let css_provider = CssProvider::new();
+        CssProviderExt::load_from_data(&css_provider, style.as_bytes());
+
         let enabled = Button::new_with_label("Enable");
         let active = Button::new_with_label("Start");
         let mask = Button::new_with_label("Mask");
+        let file_save = Button::new_with_label("Save");
         let delete = Button::new_with_label("Delete");
+        enabled.get_style_context().map(|c| {
+            c.add_provider(&css_provider, 0);
+            c.add_class("action_button");
+        });
+        active.get_style_context().map(|c| {
+            c.add_provider(&css_provider, 0);
+            c.add_class("action_button");
+        });
+        file_save.get_style_context().map(|c| {
+            c.add_provider(&css_provider, 0);
+            c.add_class("action_button");
+        });
+
+        let button_box = ButtonBox::new(Orientation::Horizontal);
+        button_box.add(&file_save);
+        button_box.add(&enabled);
+        button_box.add(&active);
 
         let extra_box = Box::new(Orientation::Vertical, 0);
         extra_box.pack_start(&mask, false, false, 0);
@@ -127,8 +137,7 @@ impl UnitsContent {
         let notebook = UnitsNotebook::new();
 
         info_bar.pack_start(&description, true, true, 0);
-        info_bar.pack_start(&enabled, false, false, 0);
-        info_bar.pack_start(&active, false, false, 0);
+        info_bar.pack_start(&button_box, false, false, 0);
         info_bar.pack_start(&extra, false, false, 0);
 
         container.pack_start(&info_bar, false, false, 0);
@@ -137,28 +146,23 @@ impl UnitsContent {
         container.set_margin_top(3);
         container.set_margin_bottom(3);
 
-        UnitsContent { container, description, enabled, active, notebook }
+        UnitsContent { container, description, file_save, enabled, active, notebook }
     }
 }
 
 pub struct UnitsNotebook {
     pub container:         Notebook,
     pub file_buff:         Buffer,
-    pub file_save:         Button,
     pub journal_buff:      TextBuffer,
     pub dependencies_buff: TextBuffer,
 }
 
 impl UnitsNotebook {
     pub fn new() -> UnitsNotebook {
-        let file_box = Box::new(Orientation::Vertical, 0);
         let file_buff = Buffer::new(None);
         let file_view = View::new_with_buffer(&file_buff);
-        let file_save = Button::new_with_label("Save");
-        let scroller = ScrolledWindow::new(None, None);
-        scroller.add(&file_view);
-        file_box.pack_start(&scroller, true, true, 0);
-        file_box.pack_start(&file_save, false, false, 0);
+        let file_scroller = ScrolledWindow::new(None, None);
+        file_scroller.add(&file_view);
 
         let journal_buff = TextBuffer::new(None);
         let journal_view = TextView::new_with_buffer(&journal_buff);
@@ -176,17 +180,18 @@ impl UnitsNotebook {
 
         let container = Notebook::new();
         container.set_show_tabs(true);
-        container.add(&file_box);
+        container.set_tab_pos(PositionType::Bottom);
+        container.add(&file_scroller);
         container.add(&journal_scroller);
         container.add(&dependencies_scroller);
-        container.set_tab_label_text(&file_box, "File");
+        container.set_tab_label_text(&file_scroller, "File");
         container.set_tab_label_text(&journal_scroller, "Journal");
         container.set_tab_label_text(&dependencies_scroller, "Dependencies");
-        expand_tab(&container, &file_box);
+        expand_tab(&container, &file_scroller);
         expand_tab(&container, &journal_scroller);
         expand_tab(&container, &dependencies_scroller);
 
-        UnitsNotebook { container, file_buff, file_save, journal_buff, dependencies_buff }
+        UnitsNotebook { container, file_buff, journal_buff, dependencies_buff }
     }
 }
 
