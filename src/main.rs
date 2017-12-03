@@ -1,12 +1,11 @@
 extern crate gtk;
-extern crate gdk;
+extern crate pango;
 extern crate quickersort;
+extern crate sourceview;
 
-mod systemd;
-mod gui {
-    pub mod gtk3;
-}
+mod ui;
+pub mod systemd;
 
-fn main() {
-    gui::gtk3::launch();
-}
+use ui::App;
+
+fn main() { App::new().connect_events().then_execute() }
