@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
+use dbus::{BusType, Connection, Message};
 
 #[derive(Debug)]
 pub enum UnitError {
@@ -100,21 +101,16 @@ impl Unit {
         is_enabled: bool,
     ) -> io::Result<()> {
         if location == Location::Localhost {
-            let status = if kind == Kind::System {
-                Command::new("systemctl")
-                    .arg(if is_enabled { "disable" } else { "enable" })
-                    .arg(&self.name)
-                    .status()?
+            if is_enabled {
+                match disable(kind, &self.name) {
+                    Ok(()) => self.status = UnitStatus::Disabled,
+                    Err(why) => eprintln!("{}", why)
+                }
             } else {
-                Command::new("systemctl")
-                    .arg(if is_enabled { "disable" } else { "enable" })
-                    .arg("--user")
-                    .arg(&self.name)
-                    .status()?
-            };
-
-            if status.success() {
-                self.status = if is_enabled { UnitStatus::Disabled } else { UnitStatus::Enabled };
+                match enable(kind, &self.name) {
+                    Ok(()) => self.status = UnitStatus::Enabled,
+                    Err(why) => eprintln!("{}", why)
+                }
             }
             Ok(())
         } else {
@@ -253,4 +249,44 @@ pub fn get_journal(kind: Kind, name: &str) -> Option<String> {
     };
 
     cmd.and_then(|output| String::from_utf8(output.stdout).ok())
+}
+
+/// Takes a systemd dbus function as input and returns the result as a `Message`.
+macro_rules! dbus_message {
+    ($function:expr) => {{
+        let dest      = "org.freedesktop.systemd1";
+        let node      = "/org/freedesktop/systemd1";
+        let interface = "org.freedesktop.systemd1.Manager";
+        Message::new_method_call(dest, node, interface, $function)
+            .map_err(|why| DbusError::MethodCallError { why })
+    }}
+}
+
+/// Takes a `Message` as input and makes a connection to dbus, returning the reply.
+macro_rules! dbus_connect {
+    ($message:expr, $kind:expr) => {
+        Connection::get_private(if $kind == Kind::System { BusType::System } else { BusType::Session })
+            .map(|c| c.send_with_reply_and_block($message, 4000))
+            .map_err(|why| DbusError::Connection { why: format!("{:?}", why) })
+    }
+}
+
+#[derive(Debug, Fail)]
+pub enum DbusError {
+    #[fail(display = "method call error: {}", why)]
+    MethodCallError { why: String },
+    #[fail(display = "dbus connection error: {}", why)]
+    Connection { why: String }
+}
+
+pub fn enable(kind: Kind, unit: &str) -> Result<(), DbusError> {
+    let mut message = dbus_message!("EnableUnitFiles")?;
+    message.append_items(&[[unit][..].into(), false.into(), true.into()]);
+    dbus_connect!(message, kind).map(|_| ())
+}
+
+pub fn disable(kind: Kind, unit: &str) -> Result<(), DbusError> {
+    let mut message = dbus_message!("DisableUnitFiles")?;
+    message.append_items(&[[unit][..].into(), false.into()]);
+    dbus_connect!(message, kind).map(|_| ())
 }

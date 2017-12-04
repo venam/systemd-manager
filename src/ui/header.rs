@@ -1,5 +1,4 @@
 use gtk::*;
-pub const VIEWS: &[&str] = &["Units", "Boot", "Create"];
 
 pub struct Header {
     pub container: HeaderBar,

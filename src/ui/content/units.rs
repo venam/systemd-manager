@@ -1,7 +1,6 @@
 use gtk::*;
 use pango::*;
 use sourceview::*;
-use systemd::{self, Kind};
 
 pub struct Units {
     pub container: Box,
@@ -97,27 +96,11 @@ impl UnitsContent {
         description.set_halign(Align::Start);
         description.set_margin_left(3);
 
-        let style = ".action_button { padding-left: 5px padding-right: 5px }";
-        let css_provider = CssProvider::new();
-        CssProviderExt::load_from_data(&css_provider, style.as_bytes());
-
         let enabled = Button::new_with_label("Enable");
         let active = Button::new_with_label("Start");
         let mask = Button::new_with_label("Mask");
         let file_save = Button::new_with_label("Save");
         let delete = Button::new_with_label("Delete");
-        enabled.get_style_context().map(|c| {
-            c.add_provider(&css_provider, 0);
-            c.add_class("action_button");
-        });
-        active.get_style_context().map(|c| {
-            c.add_provider(&css_provider, 0);
-            c.add_class("action_button");
-        });
-        file_save.get_style_context().map(|c| {
-            c.add_provider(&css_provider, 0);
-            c.add_class("action_button");
-        });
 
         let button_box = ButtonBox::new(Orientation::Horizontal);
         button_box.add(&file_save);

@@ -13,6 +13,9 @@ repository = "https://github.com/mmstick/systemd-manager"
 version = "1.1.0"
 
 [dependencies]
+dbus = "0.6.0"
+failure = "0.1.1"
+failure_derive = "0.1.1"
 horrorshow = "0.6.2"
 pango = "0.2.0"
 quickersort = "3.0.0"
@@ -21,10 +24,10 @@ webkit2gtk = "0.2.2"
 [dependencies.gdk]
 version = "0.6"
 
-[dependencies.sourceview]
+[dependencies.gtk]
 features = ["v3_18"]
 version = "0.2"
 
-[dependencies.gtk]
+[dependencies.sourceview]
 features = ["v3_18"]
 version = "0.2"

@@ -127,7 +127,6 @@ impl App {
         let file = self.content.units.content.notebook.file_buff.clone();
         let journal = self.content.units.content.notebook.journal_buff.clone();
         let dependencies = self.content.units.content.notebook.dependencies_buff.clone();
-        let save = self.content.units.content.file_save.clone();
         let system_list = self.content.units.selection.system_units.clone();
         let user_list = self.content.units.selection.user_units.clone();
         let save = self.content.units.content.file_save.clone();
