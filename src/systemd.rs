@@ -125,21 +125,16 @@ impl Unit {
         is_active: bool,
     ) -> io::Result<()> {
         if location == Location::Localhost {
-            let status = if kind == Kind::System {
-                Command::new("systemctl")
-                    .arg(if is_active { "stop" } else { "start" })
-                    .arg(&self.name)
-                    .status()?
+            if is_active {
+                match stop(kind, &self.name) {
+                    Ok(()) => self.active = false,
+                    Err(why) => eprintln!("{}", why)
+                }
             } else {
-                Command::new("systemctl")
-                    .arg(if is_active { "stop" } else { "start" })
-                    .arg("--user")
-                    .arg(&self.name)
-                    .status()?
-            };
-
-            if status.success() {
-                self.active = !is_active;
+                match start(kind, &self.name) {
+                    Ok(()) => self.active = true,
+                    Err(why) => eprintln!("{}", why)
+                }
             }
             Ok(())
         } else {
@@ -266,8 +261,11 @@ macro_rules! dbus_message {
 macro_rules! dbus_connect {
     ($message:expr, $kind:expr) => {
         Connection::get_private(if $kind == Kind::System { BusType::System } else { BusType::Session })
-            .map(|c| c.send_with_reply_and_block($message, 4000))
             .map_err(|why| DbusError::Connection { why: format!("{:?}", why) })
+            .and_then(
+                |c| c.send_with_reply_and_block($message, 30000)
+                    .map_err(|why| DbusError::SendErr { why: format!("{:?}", why) })
+            )
     }
 }
 
@@ -276,7 +274,9 @@ pub enum DbusError {
     #[fail(display = "method call error: {}", why)]
     MethodCallError { why: String },
     #[fail(display = "dbus connection error: {}", why)]
-    Connection { why: String }
+    Connection { why: String },
+    #[fail(display = "dbus send error: {}", why)]
+    SendErr { why: String }
 }
 
 pub fn enable(kind: Kind, unit: &str) -> Result<(), DbusError> {
@@ -288,5 +288,17 @@ pub fn enable(kind: Kind, unit: &str) -> Result<(), DbusError> {
 pub fn disable(kind: Kind, unit: &str) -> Result<(), DbusError> {
     let mut message = dbus_message!("DisableUnitFiles")?;
     message.append_items(&[[unit][..].into(), false.into()]);
+    dbus_connect!(message, kind).map(|_| ())
+}
+
+fn start(kind: Kind, unit: &str) -> Result<(), DbusError> {
+    let mut message = dbus_message!("StartUnit")?;
+    message.append_items(&[unit.into(), "fail".into()]);
+    dbus_connect!(message, kind).map(|_| ())
+}
+
+fn stop(kind: Kind, unit: &str) -> Result<(), DbusError> {
+    let mut message = dbus_message!("StopUnit")?;
+    message.append_items(&[unit.into(), "fail".into()]);
     dbus_connect!(message, kind).map(|_| ())
 }
