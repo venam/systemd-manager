@@ -150,10 +150,6 @@ impl App {
             match page_no {
                 0 => {
                     save.set_visible(true);
-                    match systemd::get_file(kind, &row.name) {
-                        Some((_path, contents)) => file.set_text(&contents),
-                        None => file.set_text(""),
-                    }
                 }
                 1 => {
                     save.set_visible(false);
@@ -285,24 +281,51 @@ impl App {
                     match systemd::get_file(kind, &row.name) {
                         Some((_path, contents)) => {
                             description.set_text(
-                                systemd::get_unit_description(&contents).unwrap_or("No Description"),
+                                systemd::get_unit_description(&contents)
+                                    .unwrap_or("No Description"),
                             );
                             file.set_text(&contents)
-                        },
+                        }
                         None => {
                             file.set_text("");
                             description.set_text("");
-                        },
+                        }
                     }
                 }
                 1 => {
                     save.set_visible(false);
                     systemd::get_journal(kind, &row.name)
                         .map_or_else(|| journal.set_text(""), |text| journal.set_text(&text));
+                    match systemd::get_file(kind, &row.name) {
+                        Some((_path, contents)) => {
+                            description.set_text(
+                                systemd::get_unit_description(&contents)
+                                    .unwrap_or("No Description"),
+                            );
+                            file.set_text(&contents)
+                        }
+                        None => {
+                            file.set_text("");
+                            description.set_text("");
+                        }
+                    }
                 }
                 2 => {
                     save.set_visible(false);
                     dependencies.set_text(&systemd::list_dependencies(kind, &row.name));
+                    match systemd::get_file(kind, &row.name) {
+                        Some((_path, contents)) => {
+                            description.set_text(
+                                systemd::get_unit_description(&contents)
+                                    .unwrap_or("No Description"),
+                            );
+                            file.set_text(&contents)
+                        }
+                        None => {
+                            file.set_text("");
+                            description.set_text("");
+                        }
+                    }
                 }
                 _ => (),
             }

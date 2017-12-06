@@ -1,15 +1,14 @@
-extern crate dbus;
-extern crate gtk;
-extern crate pango;
-extern crate quickersort;
-extern crate sourceview;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
+extern crate gtk;
+extern crate pango;
+extern crate sourceview;
+extern crate systemd_manager;
 
 mod ui;
-pub mod systemd;
 
 use ui::App;
+pub use systemd_manager::systemd;
 
 fn main() { App::new().connect_events().then_execute() }
