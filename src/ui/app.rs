@@ -45,6 +45,28 @@ buttonbox > button {
     border-radius: 0;
 }
 
+row:selected, row:hover {
+    background: @bg-color;
+    border-left-width:.25em;
+    border-style: solid;
+}
+
+row:hover {
+    border-color: #09F;
+}
+
+row:hover label {
+    color: #09F;
+}
+
+row:selected label {
+    color: #F90;
+}
+
+row:selected {
+    border-color: #F90;
+}
+
 buttonbox > button:first-child {
     border-top-left-radius: 10px;
     border-bottom-left-radius: 10px;
