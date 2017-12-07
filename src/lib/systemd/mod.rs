@@ -257,16 +257,23 @@ pub fn list_properties<F: Fn(i32, &str, &str)>(kind: Kind, name: &str, action: F
 
     let output = cmd.ok().and_then(|output| String::from_utf8(output.stdout).ok())?;
 
-    let mut id = 1;
+    struct Property<'a> {
+        property: &'a str,
+        value: &'a str,
+    }
+
+    let mut properties = Vec::new();
     for line in output.lines() {
         if let Some(pos) = line.find('=') {
             let (property, value) = line.split_at(pos);
             if value.len() > 1 {
-                id += 1;
-                action(id, property, &value[1..]);
+                properties.push(Property { property, value: &value[1..] });
             }
         }
     }
+
+    quickersort::sort_by(&mut properties, &|a, b| a.property.cmp(&b.property));
+    properties.into_iter().enumerate().for_each(|(id, p)| action(id as i32, p.property, p.value));
 
     Some(())
 }

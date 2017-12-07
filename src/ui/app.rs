@@ -19,22 +19,14 @@ const CUSTOM_CSS: &str = r#"
     padding: 5px;
 }
 
-grid *:nth-child(odd),grid *:nth-child(2) {
-    font-weight: bold;
-}
-
-grid textview text {
-    background: transparent;
-    border-bottom-width: 0.2em;
-    border-style: solid;
-}
-
 .even_row text {
     border-color: #09F;
 }
 
-.odd_row text {
-    border-color: #F90;
+grid textview text {
+    background: transparent;
+    border-bottom-width: 0.1em;
+    border-style: solid;
 }
 
 button {
@@ -51,20 +43,16 @@ row:selected, row:hover {
     border-style: solid;
 }
 
-row:hover {
+row:hover, row:selected {
     border-color: #09F;
 }
 
-row:hover label {
+row:hover label, row:selected label {
     color: #09F;
 }
 
-row:selected label {
-    color: #F90;
-}
-
 row:selected {
-    border-color: #F90;
+    font-weight: bold;
 }
 
 buttonbox > button:first-child {
@@ -104,11 +92,11 @@ impl App {
 
         // Create a new top level window.
         let window = Window::new(WindowType::Toplevel);
-        // Add additional CSS styles
+
+        // Add a custom CSS style
         let screen = window.get_screen().unwrap();
         let grid_style = CssProvider::new();
         let _ = CssProviderExt::load_from_data(&grid_style, CUSTOM_CSS.as_bytes());
-
         StyleContext::add_provider_for_screen(&screen, &grid_style, STYLE_PROVIDER_PRIORITY_USER);
 
         // Create a the headerbar and it's associated content.
@@ -240,7 +228,7 @@ impl App {
                 }
                 3 => {
                     save.set_visible(false);
-                    properties.get_children().iter().skip(2).for_each(|c| c.destroy());
+                    properties.get_children().iter().for_each(|c| c.destroy());
                     systemd::list_properties(kind, &row.name, |id, p, v| fill_property(&properties, id, p, v));
                     properties.show_all();
                 }
@@ -414,7 +402,20 @@ impl App {
                 }
                 3 => {
                     save.set_visible(false);
-                    properties.get_children().iter().skip(2).for_each(|c| c.destroy());
+                    match systemd::get_file(kind, &row.name) {
+                        Some((_path, contents)) => {
+                            description.set_text(
+                                systemd::get_unit_description(&contents)
+                                    .unwrap_or("No Description"),
+                            );
+                            file.set_text(&contents)
+                        }
+                        None => {
+                            file.set_text("");
+                            description.set_text("");
+                        }
+                    }
+                    properties.get_children().iter().for_each(|c| c.destroy());
                     systemd::list_properties(kind, &row.name, |id, p, v| fill_property(&properties, id, p, v));
                     properties.show_all();
                 }

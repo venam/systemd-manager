@@ -158,13 +158,7 @@ impl UnitsNotebook {
         let dependencies_scroller = ScrolledWindow::new(None, None);
         dependencies_scroller.add(&dependencies_view);
 
-        let property_label = Label::new("Properties");
-        let value_label = Label::new("Values");
-
         let properties = Grid::new();
-        properties.attach(&property_label, 0, 0, 1, 1);
-        properties.attach(&value_label, 1, 0, 1, 1);
-
         let properties_scroller = ScrolledWindow::new(None, None);
         properties_scroller.add(&properties);
 
