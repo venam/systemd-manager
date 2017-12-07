@@ -247,3 +247,26 @@ pub fn get_journal(kind: Kind, name: &str) -> Option<String> {
 
     cmd.and_then(|output| String::from_utf8(output.stdout).ok())
 }
+
+pub fn list_properties<F: Fn(i32, &str, &str)>(kind: Kind, name: &str, action: F) -> Option<()> {
+    let cmd = if kind == Kind::System {
+        Command::new("systemctl").arg("--no-pager").arg("show").arg(name).output()
+    } else {
+        Command::new("systemctl").arg("--no-pager").arg("--user").arg("show").arg(name).output()
+    };
+
+    let output = cmd.ok().and_then(|output| String::from_utf8(output.stdout).ok())?;
+
+    let mut id = 1;
+    for line in output.lines() {
+        if let Some(pos) = line.find('=') {
+            let (property, value) = line.split_at(pos);
+            if value.len() > 1 {
+                id += 1;
+                action(id, property, &value[1..]);
+            }
+        }
+    }
+
+    Some(())
+}

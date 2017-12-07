@@ -9,6 +9,52 @@ use systemd::{self, Kind, Location, UnitStatus, Units};
 const DESTRUCTIVE: &str = "destructive-action";
 const SUGGESTED: &str = "suggested-action";
 
+const CUSTOM_CSS: &str = r#"
+.title {
+    border-bottom-color: #09F;
+    border-bottom-width: 3px;
+}
+
+.odd_row, .even_row {
+    padding: 5px;
+}
+
+grid *:nth-child(odd),grid *:nth-child(2) {
+    font-weight: bold;
+}
+
+grid textview text {
+    background: transparent;
+    border-bottom-width: 0.2em;
+    border-style: solid;
+}
+
+.even_row text {
+    border-color: #09F;
+}
+
+.odd_row text {
+    border-color: #F90;
+}
+
+button {
+    padding:3px;
+}
+
+buttonbox > button {
+    border-radius: 0;
+}
+
+buttonbox > button:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+buttonbox > button:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}"#;
+
 pub struct App {
     pub window:  Window,
     pub header:  Header,
@@ -36,6 +82,13 @@ impl App {
 
         // Create a new top level window.
         let window = Window::new(WindowType::Toplevel);
+        // Add additional CSS styles
+        let screen = window.get_screen().unwrap();
+        let grid_style = CssProvider::new();
+        let _ = CssProviderExt::load_from_data(&grid_style, CUSTOM_CSS.as_bytes());
+
+        StyleContext::add_provider_for_screen(&screen, &grid_style, STYLE_PROVIDER_PRIORITY_USER);
+
         // Create a the headerbar and it's associated content.
         let header = Header::new();
         // Create the content container and all of it's widgets.
@@ -52,6 +105,7 @@ impl App {
         Window::set_default_icon_name("iconname");
         // Add the content to the window.
         window.add(&content.container);
+
 
         // Programs what to do when the exit button is used.
         window.connect_delete_event(move |_, _| {
@@ -130,6 +184,8 @@ impl App {
         let system_list = self.content.units.selection.system_units.clone();
         let user_list = self.content.units.selection.user_units.clone();
         let save = self.content.units.content.file_save.clone();
+        let properties = self.content.units.content.notebook.properties.clone();
+        
         switcher.connect_switch_page(move |_, _, page_no| {
             let (kind, list, units) = if stack_is_user(&stack) {
                 (Kind::User, &user_list, user_units.read().unwrap())
@@ -159,6 +215,12 @@ impl App {
                 2 => {
                     save.set_visible(false);
                     dependencies.set_text(&systemd::list_dependencies(kind, &row.name));
+                }
+                3 => {
+                    save.set_visible(false);
+                    properties.get_children().iter().skip(2).for_each(|c| c.destroy());
+                    systemd::list_properties(kind, &row.name, |id, p, v| fill_property(&properties, id, p, v));
+                    properties.show_all();
                 }
                 _ => (),
             }
@@ -262,6 +324,7 @@ impl App {
         let save = self.content.units.content.file_save.clone();
         let description = self.content.units.content.description.clone();
         let switcher = self.content.units.content.notebook.container.clone();
+        let properties = self.content.units.content.notebook.properties.clone();
 
         listbox.connect_row_selected(move |_, row| {
             let id = match row.as_ref() {
@@ -327,10 +390,44 @@ impl App {
                         }
                     }
                 }
+                3 => {
+                    save.set_visible(false);
+                    properties.get_children().iter().skip(2).for_each(|c| c.destroy());
+                    systemd::list_properties(kind, &row.name, |id, p, v| fill_property(&properties, id, p, v));
+                    properties.show_all();
+                }
                 _ => (),
             }
         });
     }
+}
+
+fn fill_property(properties: &Grid, id: i32, property: &str, value: &str) {
+    let buffer = TextBuffer::new(None);
+    buffer.set_text(property);
+    let property = TextView::new_with_buffer(&buffer);
+    property.set_editable(false);
+
+    let buffer = TextBuffer::new(None);
+    buffer.set_text(value);
+    let value = TextView::new_with_buffer(&buffer);
+    value.set_wrap_mode(WrapMode::Word);
+    value.set_editable(false);
+
+    property.get_style_context().map(
+        |p| value.get_style_context().map(|v| {
+            let class = if id % 2 == 0 {
+                "even_row"
+            } else {
+                "odd_row"
+            };
+            p.add_class(class);
+            v.add_class(class);
+        })
+    );
+
+    properties.attach(&property, 0, id, 1, 1);
+    properties.attach(&value, 1, id, 1, 1);
 }
 
 fn stack_is_user(stack: &Stack) -> bool {

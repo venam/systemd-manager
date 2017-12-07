@@ -138,6 +138,7 @@ pub struct UnitsNotebook {
     pub file_buff:         Buffer,
     pub journal_buff:      TextBuffer,
     pub dependencies_buff: TextBuffer,
+    pub properties:        Grid
 }
 
 impl UnitsNotebook {
@@ -157,9 +158,21 @@ impl UnitsNotebook {
         let dependencies_scroller = ScrolledWindow::new(None, None);
         dependencies_scroller.add(&dependencies_view);
 
+        let property_label = Label::new("Properties");
+        let value_label = Label::new("Values");
+
+        let properties = Grid::new();
+        properties.attach(&property_label, 0, 0, 1, 1);
+        properties.attach(&value_label, 1, 0, 1, 1);
+
+        let properties_scroller = ScrolledWindow::new(None, None);
+        properties_scroller.add(&properties);
+
         configure_source_view(&file_view, &file_buff);
         journal_view.set_border_width(5);
         dependencies_view.set_border_width(5);
+        journal_view.set_monospace(true);
+        dependencies_view.set_monospace(true);
 
         let container = Notebook::new();
         container.set_show_tabs(true);
@@ -167,14 +180,17 @@ impl UnitsNotebook {
         container.add(&file_scroller);
         container.add(&journal_scroller);
         container.add(&dependencies_scroller);
+        container.add(&properties_scroller);
         container.set_tab_label_text(&file_scroller, "File");
         container.set_tab_label_text(&journal_scroller, "Journal");
         container.set_tab_label_text(&dependencies_scroller, "Dependencies");
+        container.set_tab_label_text(&properties_scroller, "Properties");
         expand_tab(&container, &file_scroller);
         expand_tab(&container, &journal_scroller);
         expand_tab(&container, &dependencies_scroller);
+        expand_tab(&container, &properties_scroller);
 
-        UnitsNotebook { container, file_buff, journal_buff, dependencies_buff }
+        UnitsNotebook { container, file_buff, journal_buff, dependencies_buff, properties }
     }
 }
 
