@@ -166,7 +166,9 @@ impl UnitsNotebook {
         journal_view.set_border_width(5);
         dependencies_view.set_border_width(5);
         journal_view.set_monospace(true);
+        journal_view.set_editable(false);
         dependencies_view.set_monospace(true);
+        dependencies_view.set_editable(false);
 
         let container = Notebook::new();
         container.set_show_tabs(true);

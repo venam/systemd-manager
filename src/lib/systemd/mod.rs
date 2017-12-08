@@ -1,4 +1,4 @@
-mod dbus_interface;
+pub mod dbus_interface;
 
 use quickersort;
 use std::io;
@@ -101,18 +101,14 @@ impl Unit {
         kind: Kind,
         location: Location,
         is_enabled: bool,
-    ) -> io::Result<()> {
+    ) -> Result<(), DbusError> {
         if location == Location::Localhost {
             if is_enabled {
-                match disable(kind, &self.name) {
-                    Ok(()) => self.status = UnitStatus::Disabled,
-                    Err(why) => eprintln!("{}", why),
-                }
+                disable(kind, &self.name)?;
+                self.status = UnitStatus::Disabled;
             } else {
-                match enable(kind, &self.name) {
-                    Ok(()) => self.status = UnitStatus::Enabled,
-                    Err(why) => eprintln!("{}", why),
-                }
+                enable(kind, &self.name)?;
+                self.status = UnitStatus::Enabled;
             }
             Ok(())
         } else {
@@ -125,19 +121,14 @@ impl Unit {
         kind: Kind,
         location: Location,
         is_active: bool,
-    ) -> io::Result<()> {
+    ) -> Result<(), DbusError> {
         if location == Location::Localhost {
             if is_active {
-                match stop(kind, &self.name) {
-                    Ok(()) => self.active = false,
-                    Err(why) => eprintln!("{}", why),
-                }
+                stop(kind, &self.name)?;
             } else {
-                match start(kind, &self.name) {
-                    Ok(()) => self.active = true,
-                    Err(why) => eprintln!("{}", why),
-                }
+                start(kind, &self.name)?;
             }
+            self.active = !is_active;
             Ok(())
         } else {
             unimplemented!()

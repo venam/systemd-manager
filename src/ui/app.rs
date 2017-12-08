@@ -1,4 +1,4 @@
-use super::{Content, Header};
+use super::{Content, Header, dialogs};
 use gtk;
 use gtk::*;
 use std::ops::DerefMut;
@@ -10,11 +10,6 @@ const DESTRUCTIVE: &str = "destructive-action";
 const SUGGESTED: &str = "suggested-action";
 
 const CUSTOM_CSS: &str = r#"
-.title {
-    border-bottom-color: #09F;
-    border-bottom-width: 3px;
-}
-
 .odd_row, .even_row {
     padding: 5px;
 }
@@ -37,10 +32,18 @@ buttonbox > button {
     border-radius: 0;
 }
 
+row {
+    border-bottom-width: 0.1em;
+    border-style: solid;
+    border-color: #AAA;
+    padding: 0.25em;
+}
+
 row:selected, row:hover {
     background: @bg-color;
     border-left-width:.25em;
     border-style: solid;
+    border-color: #AAA;
 }
 
 row:hover, row:selected {
@@ -188,14 +191,13 @@ impl App {
     ) {
         let stack = self.content.units.selection.units_stack.clone();
         let switcher = self.content.units.content.notebook.container.clone();
-        let file = self.content.units.content.notebook.file_buff.clone();
         let journal = self.content.units.content.notebook.journal_buff.clone();
         let dependencies = self.content.units.content.notebook.dependencies_buff.clone();
         let system_list = self.content.units.selection.system_units.clone();
         let user_list = self.content.units.selection.user_units.clone();
         let save = self.content.units.content.file_save.clone();
         let properties = self.content.units.content.notebook.properties.clone();
-        
+
         switcher.connect_switch_page(move |_, _, page_no| {
             let (kind, list, units) = if stack_is_user(&stack) {
                 (Kind::User, &user_list, user_units.read().unwrap())
@@ -206,7 +208,7 @@ impl App {
             let id = match list.get_selected_row() {
                 Some(row) => row.get_index(),
                 None => {
-                    eprintln!("invalid row");
+                    dialogs::error("unable to get selected row");
                     return;
                 }
             };
@@ -271,7 +273,7 @@ impl App {
             let id = match list.get_selected_row() {
                 Some(row) => row.get_index(),
                 None => {
-                    eprintln!("invalid row");
+                    dialogs::error("unable to get selected row");
                     return;
                 }
             };
@@ -279,8 +281,9 @@ impl App {
             let is_enabled = enabled.get_label().map_or(false, |enabled| enabled == "Disable");
             let row: Option<&mut systemd::Unit> = units.deref_mut().get_mut(id as usize);
             row.map(|row| {
-                if row.toggle_enablement(kind, Location::Localhost, is_enabled).is_ok() {
-                    update_enable_button(&enabled, row.status);
+                match row.toggle_enablement(kind, Location::Localhost, is_enabled) {
+                    Ok(()) => update_enable_button(&enabled, row.status),
+                    Err(why) => dialogs::error(&why.to_string())
                 }
             });
         });
@@ -300,7 +303,7 @@ impl App {
             let id = match list.get_selected_row() {
                 Some(row) => row.get_index(),
                 None => {
-                    eprintln!("invalid row");
+                    dialogs::error("unable to select row");
                     return;
                 }
             };
@@ -308,8 +311,9 @@ impl App {
             let is_active = active.get_label().map_or(false, |active| active == "Stop");
             let row: Option<&mut systemd::Unit> = units.deref_mut().get_mut(id as usize);
             row.map(|row| {
-                if row.toggle_activeness(kind, Location::Localhost, is_active).is_ok() {
-                    update_active_button(&active, row.active);
+                match row.toggle_activeness(kind, Location::Localhost, is_active) {
+                    Ok(()) => update_active_button(&active, row.active),
+                    Err(why) => dialogs::error(&why.to_string())
                 }
             });
         });
