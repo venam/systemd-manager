@@ -22,7 +22,6 @@ failure_derive = "0.1.1"
 horrorshow = "0.6.2"
 pango = "0.2.0"
 quickersort = "3.0.0"
-webkit2gtk = "0.2.2"
 
 [dependencies.gdk]
 version = "0.6"

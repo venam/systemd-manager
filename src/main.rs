@@ -7,8 +7,8 @@ extern crate sourceview;
 extern crate systemd_manager;
 
 mod ui;
+pub use systemd_manager::systemd;
 
 use ui::App;
-pub use systemd_manager::systemd;
 
 fn main() { App::new().connect_events().then_execute() }

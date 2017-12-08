@@ -1,4 +1,5 @@
-use super::{Content, Header, dialogs};
+use super::{Content, Header};
+use super::dialogs::Dialogs;
 use gtk;
 use gtk::*;
 use std::ops::DerefMut;
@@ -197,6 +198,7 @@ impl App {
         let user_list = self.content.units.selection.user_units.clone();
         let save = self.content.units.content.file_save.clone();
         let properties = self.content.units.content.notebook.properties.clone();
+        let window = self.window.clone();
 
         switcher.connect_switch_page(move |_, _, page_no| {
             let (kind, list, units) = if stack_is_user(&stack) {
@@ -208,7 +210,7 @@ impl App {
             let id = match list.get_selected_row() {
                 Some(row) => row.get_index(),
                 None => {
-                    dialogs::error("unable to get selected row");
+                    window.error_dialog("unable to get selected row");
                     return;
                 }
             };
@@ -263,6 +265,8 @@ impl App {
         let system_list = self.content.units.selection.system_units.clone();
         let user_list = self.content.units.selection.user_units.clone();
         let stack = self.content.units.selection.units_stack.clone();
+        let window = self.window.clone();
+
         self.content.units.content.enabled.connect_clicked(move |enabled| {
             let (kind, list, mut units) = if stack_is_user(&stack) {
                 (Kind::User, &user_list, user_units.write().unwrap())
@@ -273,7 +277,7 @@ impl App {
             let id = match list.get_selected_row() {
                 Some(row) => row.get_index(),
                 None => {
-                    dialogs::error("unable to get selected row");
+                    window.error_dialog("unable to get selected row");
                     return;
                 }
             };
@@ -283,7 +287,7 @@ impl App {
             row.map(|row| {
                 match row.toggle_enablement(kind, Location::Localhost, is_enabled) {
                     Ok(()) => update_enable_button(&enabled, row.status),
-                    Err(why) => dialogs::error(&why.to_string())
+                    Err(why) => window.error_dialog(&why.to_string())
                 }
             });
         });
@@ -293,6 +297,8 @@ impl App {
         let system_list = self.content.units.selection.system_units.clone();
         let user_list = self.content.units.selection.user_units.clone();
         let stack = self.content.units.selection.units_stack.clone();
+        let window = self.window.clone();
+
         self.content.units.content.active.connect_clicked(move |active| {
             let (kind, list, mut units) = if stack_is_user(&stack) {
                 (Kind::User, &user_list, user_units.write().unwrap())
@@ -303,7 +309,7 @@ impl App {
             let id = match list.get_selected_row() {
                 Some(row) => row.get_index(),
                 None => {
-                    dialogs::error("unable to select row");
+                    window.error_dialog("unable to select row");
                     return;
                 }
             };
@@ -313,7 +319,7 @@ impl App {
             row.map(|row| {
                 match row.toggle_activeness(kind, Location::Localhost, is_active) {
                     Ok(()) => update_active_button(&active, row.active),
-                    Err(why) => dialogs::error(&why.to_string())
+                    Err(why) => window.error_dialog(&why.to_string())
                 }
             });
         });
