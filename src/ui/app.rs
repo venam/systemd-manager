@@ -1,5 +1,6 @@
 use super::{Content, Header};
 use super::dialogs::Dialogs;
+use gdk::CONTROL_MASK;
 use gtk;
 use gtk::*;
 use std::ops::DerefMut;
@@ -147,6 +148,7 @@ impl App {
         self.connect_activate(system_units.clone(), user_units.clone());
         self.connect_unit_switch(system_units.clone(), user_units.clone());
         self.connect_refresh_units(system_units.clone(), user_units.clone());
+        self.connect_keys(system_units.clone(), user_units.clone());
         self.connect_search(system_units, user_units);
 
         {
@@ -156,6 +158,23 @@ impl App {
 
         // Wrap the `App` within `ConnectedApp` to enable the developer to execute the program.
         ConnectedApp(self)
+    }
+
+    fn connect_keys(
+        &self,
+        _system_units: Arc<RwLock<Units>>,
+        _user_units: Arc<RwLock<Units>>,
+    ) {
+        let selection_pane = self.content.units.selection.container.clone();
+        self.window.connect_key_press_event(move |_window, event| {
+            match event.get_keyval() {
+                key if key == '\\' as u32 && event.get_state().contains(CONTROL_MASK) => {
+                    selection_pane.set_visible(!selection_pane.get_visible())
+                }
+                _ => ()
+            }
+            Inhibit(false)
+        });
     }
 
     fn connect_refresh_units(

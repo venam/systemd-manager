@@ -14,8 +14,8 @@ impl Units {
         let selection = UnitsSelection::new();
         let content = UnitsContent::new();
 
-        container.add1(&selection.container);
-        container.add2(&content.container);
+        container.pack1(&selection.container, false, false);
+        container.pack2(&content.container, true, true);
 
         Units { container, selection, content }
     }
@@ -91,10 +91,11 @@ impl UnitsContent {
         let container = Box::new(Orientation::Vertical, 3);
         let info_bar = Box::new(Orientation::Horizontal, 3);
         let description = Label::new(None);
+        description.set_ellipsize(EllipsizeMode::End);
 
         description.set_markup("<b>Unit description here...</b>");
         description.set_halign(Align::Start);
-        description.set_margin_left(3);
+        description.set_margin_left(5);
 
         let enabled = Button::new_with_label("Enable");
         let active = Button::new_with_label("Start");
