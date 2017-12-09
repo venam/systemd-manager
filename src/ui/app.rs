@@ -171,6 +171,9 @@ impl App {
                 key if key == '\\' as u32 && event.get_state().contains(CONTROL_MASK) => {
                     selection_pane.set_visible(!selection_pane.get_visible())
                 }
+                key if key == 'q' as u32 && event.get_state().contains(CONTROL_MASK) => {
+                    gtk::main_quit();
+                }
                 _ => ()
             }
             Inhibit(false)
