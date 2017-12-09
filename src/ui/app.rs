@@ -5,7 +5,7 @@ use gtk::*;
 use std::ops::DerefMut;
 use std::process;
 use std::sync::{Arc, RwLock};
-use systemd::{self, Kind, Location, UnitStatus, Units};
+use systemd_manager::{self, Kind, Location, UnitStatus, Units};
 
 const DESTRUCTIVE: &str = "destructive-action";
 const SUGGESTED: &str = "suggested-action";
@@ -223,17 +223,17 @@ impl App {
                 }
                 1 => {
                     save.set_visible(false);
-                    systemd::get_journal(kind, &row.name)
+                    row.journal(kind)
                         .map_or_else(|| journal.set_text(""), |text| journal.set_text(&text));
                 }
                 2 => {
                     save.set_visible(false);
-                    dependencies.set_text(&systemd::list_dependencies(kind, &row.name));
+                    dependencies.set_text(&row.dependencies(kind));
                 }
                 3 => {
                     save.set_visible(false);
                     properties.get_children().iter().for_each(|c| c.destroy());
-                    systemd::list_properties(kind, &row.name, |id, p, v| fill_property(&properties, id, p, v));
+                    row.properties(kind, |id, p, v| fill_property(&properties, id, p, v));
                     properties.show_all();
                 }
                 _ => (),
@@ -283,7 +283,7 @@ impl App {
             };
 
             let is_enabled = enabled.get_label().map_or(false, |enabled| enabled == "Disable");
-            let row: Option<&mut systemd::Unit> = units.deref_mut().get_mut(id as usize);
+            let row: Option<&mut systemd_manager::Unit> = units.deref_mut().get_mut(id as usize);
             row.map(|row| {
                 match row.toggle_enablement(kind, Location::Localhost, is_enabled) {
                     Ok(()) => update_enable_button(&enabled, row.status),
@@ -315,7 +315,7 @@ impl App {
             };
 
             let is_active = active.get_label().map_or(false, |active| active == "Stop");
-            let row: Option<&mut systemd::Unit> = units.deref_mut().get_mut(id as usize);
+            let row: Option<&mut systemd_manager::Unit> = units.deref_mut().get_mut(id as usize);
             row.map(|row| {
                 match row.toggle_activeness(kind, Location::Localhost, is_active) {
                     Ok(()) => update_active_button(&active, row.active),
@@ -361,10 +361,10 @@ impl App {
             match switcher.get_current_page().unwrap_or(0) {
                 0 => {
                     save.set_visible(true);
-                    match systemd::get_file(kind, &row.name) {
+                    match row.cat(kind) {
                         Some((_path, contents)) => {
                             description.set_text(
-                                systemd::get_unit_description(&contents)
+                                systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
                             file.set_text(&contents)
@@ -377,12 +377,12 @@ impl App {
                 }
                 1 => {
                     save.set_visible(false);
-                    systemd::get_journal(kind, &row.name)
+                    row.journal(kind)
                         .map_or_else(|| journal.set_text(""), |text| journal.set_text(&text));
-                    match systemd::get_file(kind, &row.name) {
+                    match row.cat(kind) {
                         Some((_path, contents)) => {
                             description.set_text(
-                                systemd::get_unit_description(&contents)
+                                systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
                             file.set_text(&contents)
@@ -395,11 +395,11 @@ impl App {
                 }
                 2 => {
                     save.set_visible(false);
-                    dependencies.set_text(&systemd::list_dependencies(kind, &row.name));
-                    match systemd::get_file(kind, &row.name) {
+                    dependencies.set_text(&row.dependencies(kind));
+                    match row.cat(kind) {
                         Some((_path, contents)) => {
                             description.set_text(
-                                systemd::get_unit_description(&contents)
+                                systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
                             file.set_text(&contents)
@@ -412,10 +412,10 @@ impl App {
                 }
                 3 => {
                     save.set_visible(false);
-                    match systemd::get_file(kind, &row.name) {
+                    match row.cat(kind) {
                         Some((_path, contents)) => {
                             description.set_text(
-                                systemd::get_unit_description(&contents)
+                                systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
                             file.set_text(&contents)
@@ -426,7 +426,7 @@ impl App {
                         }
                     }
                     properties.get_children().iter().for_each(|c| c.destroy());
-                    systemd::list_properties(kind, &row.name, |id, p, v| fill_property(&properties, id, p, v));
+                    row.properties(kind, |id, p, v| fill_property(&properties, id, p, v));
                     properties.show_all();
                 }
                 _ => (),
@@ -446,6 +446,7 @@ fn fill_property(properties: &Grid, id: i32, property: &str, value: &str) {
     let value = TextView::new_with_buffer(&buffer);
     value.set_wrap_mode(WrapMode::Word);
     value.set_editable(false);
+    value.set_hexpand(true);
 
     property.get_style_context().map(
         |p| value.get_style_context().map(|v| {
@@ -499,13 +500,17 @@ fn update_enable_button(enabled: &Button, status: UnitStatus) {
     enabled.set_sensitive(sensitive);
 }
 
-fn update_list(units: &ListBox, new_items: &[systemd::Unit]) {
+fn update_list(units: &ListBox, new_items: &[systemd_manager::Unit]) {
     units.get_children().into_iter().for_each(|widget| widget.destroy());
     new_items.into_iter().for_each(|item| {
         let label = Label::new(item.name.as_str());
         label.set_halign(Align::Start);
         label.set_margin_left(5);
         label.set_margin_right(15);
+
+        // TODO: Add Enabled/Active Images
+        // let is_active = Image::new_from_icon_name("")
+
         units.insert(&label, -1);
     });
     units.show_all();

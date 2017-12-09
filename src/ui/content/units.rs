@@ -3,19 +3,19 @@ use pango::*;
 use sourceview::*;
 
 pub struct Units {
-    pub container: Box,
+    pub container: Paned,
     pub selection: UnitsSelection,
     pub content:   UnitsContent,
 }
 
 impl Units {
     pub fn new() -> Units {
-        let container = Box::new(Orientation::Horizontal, 0);
+        let container = Paned::new(Orientation::Horizontal);
         let selection = UnitsSelection::new();
         let content = UnitsContent::new();
 
-        container.pack_start(&selection.container, false, false, 0);
-        container.pack_start(&content.container, true, true, 0);
+        container.add1(&selection.container);
+        container.add2(&content.container);
 
         Units { container, selection, content }
     }
