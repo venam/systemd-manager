@@ -3,9 +3,12 @@ use super::dialogs::Dialogs;
 use gdk::CONTROL_MASK;
 use gtk;
 use gtk::*;
+use std::io::Write;
 use std::ops::DerefMut;
+use std::path::PathBuf;
 use std::process;
 use std::sync::{Arc, RwLock};
+use std::fs::OpenOptions;
 use systemd_manager::{self, Kind, Location, UnitStatus, Units};
 
 const DESTRUCTIVE: &str = "destructive-action";
@@ -142,13 +145,15 @@ impl App {
 
         let system_units = Arc::new(RwLock::new(system_units));
         let user_units = Arc::new(RwLock::new(user_units));
+        let active_path: Arc<RwLock<PathBuf>> = Arc::new(RwLock::new(PathBuf::new()));
 
-        self.connect_unit_lists(system_units.clone(), user_units.clone());
+        self.connect_unit_lists(system_units.clone(), user_units.clone(), active_path.clone());
         self.connect_enable(system_units.clone(), user_units.clone());
         self.connect_activate(system_units.clone(), user_units.clone());
         self.connect_unit_switch(system_units.clone(), user_units.clone());
         self.connect_refresh_units(system_units.clone(), user_units.clone());
         self.connect_keys(system_units.clone(), user_units.clone());
+        self.connect_save_unit(active_path.clone());
         self.connect_search(system_units, user_units);
 
         {
@@ -158,6 +163,29 @@ impl App {
 
         // Wrap the `App` within `ConnectedApp` to enable the developer to execute the program.
         ConnectedApp(self)
+    }
+
+    fn connect_save_unit(
+        &self,
+        active_path: Arc<RwLock<PathBuf>>,
+    ) {
+        let unit_buffer = self.content.units.content.notebook.file_buff.clone();
+        let window = self.window.clone();
+        self.content.units.content.file_save.connect_clicked(move |_save| {
+            get_buffer(&unit_buffer).map(|t| {
+                let path = active_path.read().unwrap();
+                let result = OpenOptions::new()
+                    .write(true)
+                    .create(false)
+                    .truncate(true)
+                    .open(path.as_path())
+                    .and_then(|mut file| file.write_all(t.as_bytes()));
+
+                if let Err(why) = result {
+                    window.error_dialog(&why.to_string());
+                }
+            });
+        });
     }
 
     fn connect_keys(
@@ -347,12 +375,17 @@ impl App {
         });
     }
 
-    fn connect_unit_lists(&self, system_units: Arc<RwLock<Units>>, user_units: Arc<RwLock<Units>>) {
-        self.select_unit(Kind::System, system_units);
-        self.select_unit(Kind::User, user_units);
+    fn connect_unit_lists(
+        &self,
+        system_units: Arc<RwLock<Units>>,
+        user_units: Arc<RwLock<Units>>,
+        active_path: Arc<RwLock<PathBuf>>,
+    ) {
+        self.select_unit(Kind::System, system_units, active_path.clone());
+        self.select_unit(Kind::User, user_units, active_path);
     }
 
-    fn select_unit(&self, kind: Kind, units: Arc<RwLock<Units>>) {
+    fn select_unit(&self, kind: Kind, units: Arc<RwLock<Units>>, active_path: Arc<RwLock<PathBuf>>) {
         let listbox = if kind == Kind::User {
             &self.content.units.selection.user_units
         } else {
@@ -384,12 +417,13 @@ impl App {
                 0 => {
                     save.set_visible(true);
                     match row.cat(kind) {
-                        Some((_path, contents)) => {
+                        Some((path, contents)) => {
                             description.set_text(
                                 systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
-                            file.set_text(&contents)
+                            file.set_text(&contents);
+                            *active_path.write().unwrap() = path;
                         }
                         None => {
                             file.set_text("");
@@ -402,12 +436,13 @@ impl App {
                     row.journal(kind)
                         .map_or_else(|| journal.set_text(""), |text| journal.set_text(&text));
                     match row.cat(kind) {
-                        Some((_path, contents)) => {
+                        Some((path, contents)) => {
                             description.set_text(
                                 systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
-                            file.set_text(&contents)
+                            file.set_text(&contents);
+                            *active_path.write().unwrap() = path;
                         }
                         None => {
                             file.set_text("");
@@ -419,12 +454,13 @@ impl App {
                     save.set_visible(false);
                     dependencies.set_text(&row.dependencies(kind));
                     match row.cat(kind) {
-                        Some((_path, contents)) => {
+                        Some((path, contents)) => {
                             description.set_text(
                                 systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
-                            file.set_text(&contents)
+                            file.set_text(&contents);
+                            *active_path.write().unwrap() = path;
                         }
                         None => {
                             file.set_text("");
@@ -435,12 +471,13 @@ impl App {
                 3 => {
                     save.set_visible(false);
                     match row.cat(kind) {
-                        Some((_path, contents)) => {
+                        Some((path, contents)) => {
                             description.set_text(
                                 systemd_manager::get_unit_description(&contents)
                                     .unwrap_or("No Description"),
                             );
-                            file.set_text(&contents)
+                            file.set_text(&contents);
+                            *active_path.write().unwrap() = path;
                         }
                         None => {
                             file.set_text("");
@@ -455,6 +492,12 @@ impl App {
             }
         });
     }
+}
+
+pub fn get_buffer<B: TextBufferExt>(buffer: &B) -> Option<String> {
+    let start = buffer.get_start_iter();
+    let end = buffer.get_end_iter();
+    buffer.get_text(&start, &end, true)
 }
 
 fn fill_property(properties: &Grid, id: i32, property: &str, value: &str) {
