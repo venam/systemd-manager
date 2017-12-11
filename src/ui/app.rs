@@ -570,13 +570,32 @@ fn update_list(units: &ListBox, new_items: &[systemd_manager::Unit]) {
     new_items.into_iter().for_each(|item| {
         let label = Label::new(item.name.as_str());
         label.set_halign(Align::Start);
-        label.set_margin_left(5);
-        label.set_margin_right(15);
 
-        // TODO: Add Enabled/Active Images
-        // let is_active = Image::new_from_icon_name("")
+        let active_icon = active_icon(item.active);
+        let enable_icon = enable_icon(item.status);
 
-        units.insert(&label, -1);
+        let item_box = Box::new(Orientation::Horizontal, 5);
+        item_box.pack_start(&label, true, true, 0);
+        item_box.add(&enable_icon);
+        item_box.add(&active_icon);
+        item_box.set_margin_left(5);
+        item_box.set_margin_right(15);
+
+        units.insert(&item_box, -1);
     });
     units.show_all();
+}
+
+fn active_icon(active: bool) -> Image {
+    let image = if active { "media-playback-start-symbolic" } else { "media-playback-pause-symbolic" };
+    Image::new_from_icon_name(image, 4)
+}
+
+fn enable_icon(status: UnitStatus) -> Image {
+    let image = match status {
+        UnitStatus::Enabled => "emblem-ok-symbolic",
+        UnitStatus::Disabled => "window-close-symbolic",
+        UnitStatus::Masked => "edit-delete-symbolic"
+    };
+    Image::new_from_icon_name(image, 4)
 }
