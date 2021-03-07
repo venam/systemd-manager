@@ -2,14 +2,14 @@
 name = "systemd-manager"
 version = "1.0.2"
 license = "MIT"
-authors = ["Michael Aaron Murphy <mmstickman@gmail.com>"]
+authors = ["Michael Aaron Murphy <mmstickman@gmail.com>", "Patrick Louis"]
 description = "A GTK3 GUI for managing systemd services on Linux"
 keywords = [ "gtk", "linux", "systemd" ]
-repository = "https://github.com/mmstick/systemd-manager"
+repository = "https://github.com/venam/systemd-manager"
 readme = "README.md"
 
 [dependencies]
 dbus = "0.5"
-gtk = { version = "0.1", features = ["v3_16"] }
-gdk = { version = "0.5" }
+gtk = { version = "0.2.0", features = ["v3_16"] }
+gdk = { version = "0.6" }
 quickersort = "2.0"
