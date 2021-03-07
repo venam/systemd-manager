@@ -1,5 +1,6 @@
 use std::process::Command;
 use super::SystemdUnit;
+use super::dbus::dbus::BusType as BusType;
 
 pub trait Systemctl {
     /// Runs the `systemctl status` command and receives it's stdout to determin the active status of the unit.
@@ -11,7 +12,10 @@ pub trait Systemctl {
 
 impl Systemctl for SystemdUnit {
     fn is_active(&self) -> bool {
-        Command::new("systemctl").arg("status").arg(&self.name).output().ok()
+        Command::new("systemctl").arg(match self.bustype {
+            BusType::Session => "--user",
+            _ => ""
+        }).arg("status").arg(&self.name).output().ok()
             // Collect the command's standard output as a `String` and return it as an `Option`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
             // Determine whether the state of the input is active or not.
@@ -19,7 +23,10 @@ impl Systemctl for SystemdUnit {
     }
 
     fn list_dependencies(&self) -> String {
-        Command::new("systemctl").arg("list-dependencies").arg(&self.name).output().ok()
+        Command::new("systemctl").arg(match self.bustype {
+            BusType::Session => "--user",
+            _ => ""
+        }).arg("list-dependencies").arg(&self.name).output().ok()
             // Collect the command's standard output as a `String` and return it as an `Option`.
             .and_then(|output| String::from_utf8(output.stdout).ok())
             // Collect a list of dependencies as a `String`, else return the unit's name.

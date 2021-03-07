@@ -1,4 +1,4 @@
-extern crate dbus;
+pub extern crate dbus;
 extern crate quickersort;
 use super::dbus::dbus::MessageItem;
 use super::{SystemdUnit, UnitType, UnitState};
@@ -17,8 +17,8 @@ macro_rules! dbus_message {
 
 /// Takes a `dbus::Message` as input and makes a connection to dbus, returning the reply.
 macro_rules! dbus_connect {
-    ($message:expr) => {
-        dbus::Connection::get_private(dbus::BusType::System).unwrap().
+    ($message:expr, $bus_type:expr) => {
+        dbus::Connection::get_private($bus_type).unwrap().
             send_with_reply_and_block($message, 4000)
     }
 }
@@ -35,7 +35,7 @@ pub trait Dbus {
 impl Dbus for SystemdUnit {
     /// Returns the current enablement status of the unit.
     fn is_enabled(&self) -> bool {
-        list_unit_files().iter()
+        list_unit_files(self.bustype).iter()
             // Find the specific unit that we waant to obtain the status from
             .find(|unit| &unit.path == &self.path)
             // Map the contained value of that unit and return true if the `UnitState` is `Enabled`.
@@ -47,7 +47,7 @@ impl Dbus for SystemdUnit {
     fn enable(&self) -> Result<bool, String> {
         let mut message = dbus_message!("EnableUnitFiles");
         message.append_items(&[[self.name.as_str()][..].into(), false.into(), true.into()]);
-        dbus_connect!(message)
+        dbus_connect!(message, self.bustype)
             // Return `Ok(true)` if the unit is already enabled
             .map(|reply| is_enabled(&reply.get_items()))
             // Return `Err` if the unit could not be enabled.
@@ -59,7 +59,7 @@ impl Dbus for SystemdUnit {
     fn disable(&self) -> Result<bool, String> {
         let mut message = dbus_message!("DisableUnitFiles");
         message.append_items(&[[self.name.as_str()][..].into(), false.into()]);
-        dbus_connect!(message)
+        dbus_connect!(message, self.bustype)
             // Return `Ok(true)` if the unit is already disabled
             .map(|reply| is_disabled(&reply.get_items()))
             // Return `Err` if the unit could not be disabled.
@@ -71,7 +71,7 @@ impl Dbus for SystemdUnit {
         let mut message = dbus_message!("StartUnit");
         message.append_items(&[self.name.as_str().into(), "fail".into()]);
         // Return `Some(error)` if the unit could not be started, else return `None`.
-        dbus_connect!(message).err().map(|err| err.to_string())
+        dbus_connect!(message, self.bustype).err().map(|err| err.to_string())
     }
 
     /// Takes a unit name as input and attempts to stop it.
@@ -79,19 +79,19 @@ impl Dbus for SystemdUnit {
         let mut message = dbus_message!("StopUnit");
         message.append_items(&[self.name.as_str().into(), "fail".into()]);
         // Return `Some(error)` if the unit could not be stopped, else return `None`.
-        dbus_connect!(message).err().map(|err| err.to_string())
+        dbus_connect!(message, self.bustype).err().map(|err| err.to_string())
     }
 }
 
 /// Communicates with dbus to obtain a list of unit files and returns them as a `Vec<SystemdUnit>`.
-pub fn list_unit_files() -> Vec<SystemdUnit> {
-    let message = dbus_connect!(dbus_message!("ListUnitFiles"))
+pub fn list_unit_files(bustype: dbus::BusType) -> Vec<SystemdUnit> {
+    let message = dbus_connect!(dbus_message!("ListUnitFiles"), bustype)
         .expect("systemd-manager: unable to get dbus message from systemd").get_items();
-    parse_message(&format!("{:?}", message))
+    parse_message(&format!("{:?}", message), bustype)
 }
 
 /// Takes the dbus message as input and maps the information to a `Vec<SystemdUnit>`.
-fn parse_message(input: &str) -> Vec<SystemdUnit> {
+fn parse_message(input: &str, bustype: dbus::BusType) -> Vec<SystemdUnit> {
     // The first seven characters and last ten characters must be removed.
     let message: String = input.chars().skip(7).take(input.chars().count()-17).collect();
     // Create a systemd_units vector to store the collected systemd units.
@@ -109,7 +109,7 @@ fn parse_message(input: &str) -> Vec<SystemdUnit> {
         // The state of the unit can be determined by the first character in the `state`
         let state = UnitState::new(state);
         // Push the collected information into the `systemd_units` vector.
-        systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype});
+        systemd_units.push(SystemdUnit{name: name, path: path, state: state, utype: utype, bustype: bustype});
     }
 
     // Sort the list of units by their unit names using quickersort and then return the list.

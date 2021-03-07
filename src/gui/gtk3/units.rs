@@ -1,7 +1,7 @@
 use gtk::{Box, Image, Label, ListBox, ListBoxRow, Orientation};
 use gtk::prelude::*;
-use systemd::{self, UnitState, SystemdUnit};
-use systemd::systemctl::Systemctl;
+use crate::systemd::{self, UnitState, SystemdUnit};
+use crate::systemd::systemctl::Systemctl;
 use std::path::Path;
 
 /// Create a `gtk::ListboxRow` and add it to the `gtk::ListBox`, and then add the `Image` to a vector so that we can later modify

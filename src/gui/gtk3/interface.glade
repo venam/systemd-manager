@@ -652,6 +652,26 @@ Author: Michael Aaron Murphy <mmstickman@gmail.com>
                 </child>
               </object>
             </child>
+
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Session</property>
+                <attributes>
+                  <attribute name="weight" value="bold"/>
+                </attributes>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSwitch" id="session_switch">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="tooltip_text" translatable="yes">Switch between session and system services</property>
+                <property name="valign">center</property>
+              </object>
+            </child>
+
             <child>
               <object class="GtkMenuButton" id="systemd_units_button">
                 <property name="visible">True</property>

@@ -1,5 +1,5 @@
 use gtk::*;
-use systemd::analyze::Analyze;
+use crate::systemd::analyze::Analyze;
 
 /// Use `systemd-analyze blame` to fill out the information for the Analyze `gtk::Stack`.
 pub fn setup(builder: &Builder) {
